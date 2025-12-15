@@ -93,6 +93,10 @@ for x in range(3):
             g.ctp_unav_freq = 1440 * (ctp_value / 100)
             g.ctp_unav_time = 1440 - g.ctp_unav_freq
             ctp_input = True
+        # TODO: SR - JW I think this might be a typo?
+        # TODO SR - it was elif sdec_value == 100
+        # TODO SR - I have changed it to `elif ctp_value == 100:`
+        elif ctp_value == 100:
             g.ctp_value = ctp_value
             g.ctp_unav_freq = g.sim_duration * 2
             g.ctp_unav_time = 0
