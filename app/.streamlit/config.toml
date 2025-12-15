@@ -1,0 +1,31 @@
+[theme]
+base="light"
+backgroundColor="white"
+primaryColor="endeavour"
+
+[theme.sidebar]
+primaryColor="slateGray"
+
+[server]
+enableStaticServing = true
+
+[[theme.fontFaces]]
+family="Istok Web"
+url="app/static/IstokWeb-Regular.ttf"
+style="normal"
+weight=400
+[[theme.fontFaces]]
+family="Istok Web"
+url="app/static/IstokWeb-Bold.ttf"
+style="normal"
+weight=700
+[[theme.fontFaces]]
+family="Istok Web"
+url="app/static/IstokWeb-Italic.ttf"
+style="italic"
+weight=400
+[[theme.fontFaces]]
+family="Istok Web"
+url="app/static/IstokWeb-BoldItalic.ttf"
+style="italic"
+weight=700
