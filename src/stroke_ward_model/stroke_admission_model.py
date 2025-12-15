@@ -67,10 +67,12 @@ for x in range(3):
             input("What percentage of the day should the SDEC be available? (0-100)")
         )
         if sdec_value <= 100 and sdec_value >= 0:
+            g.sdec_value = sdec_value
             g.sdec_unav_freq = 1440 * (sdec_value / 100)
             g.sdec_unav_time = 1440 - g.sdec_unav_freq
             sdec_input = True
         elif sdec_value == 100:
+            g.sdec_value = sdec_value
             g.sdec_unav_freq = g.sim_duration * 2
             g.sdec_unav_time = 0
             sdec_input = True
@@ -87,10 +89,11 @@ for x in range(3):
             input("What percentage of the day should the CTP be available? (0-100)")
         )
         if ctp_value <= 100 and ctp_value >= 0:
+            g.ctp_value = ctp_value
             g.ctp_unav_freq = 1440 * (ctp_value / 100)
             g.ctp_unav_time = 1440 - g.ctp_unav_freq
             ctp_input = True
-        elif sdec_value == 100:
+            g.ctp_value = ctp_value
             g.ctp_unav_freq = g.sim_duration * 2
             g.ctp_unav_time = 0
             sdec_input = True

@@ -173,6 +173,9 @@ class g:
     ctp_unav_time = 0
     ctp_unav_freq = 0
 
+    sdec_value = 0
+    ctp_value = 0
+
     # These values are changed by the model itself
 
     sdec_unav = False
