@@ -1,0 +1,8 @@
+simpy==4.1.1
+vidigi==1.1.0
+pandas==2.1.1
+streamlit==1.52.1
+stlitepack==0.4.5
+numpy==1.26.4
+matplotlib==3.10.8
+sim-tools==1.0.0
