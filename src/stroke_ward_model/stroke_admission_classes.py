@@ -4,7 +4,9 @@ import pandas as pd
 import simpy.resources
 import numpy as np
 import matplotlib.pyplot as plt
-import csv
+from sim_tools.trace import trace
+from stroke_ward_model.utils import minutes_to_ampm
+
 
 # Global class to store parameters for the model.
 class g:
@@ -186,6 +188,8 @@ class g:
     trials_run_counter = 1
     patient_arrival_gen_1 = False
     patient_arrival_gen_2 = False
+
+    show_trace = True
 
 
 # Patient class to store patient attributes
@@ -383,6 +387,12 @@ class Model:
                 # defined above. patient counter ID passed from above to patient
                 # class.
                 p = Patient(self.patient_counter)
+                trace(
+                    time=self.env.now,
+                    debug=g.show_trace,
+                    msg=f"☀️ Patient {self.patient_counter} Generated at {minutes_to_ampm(int(self.env.now % 1440))}",
+                    identifier=self.patient_counter,
+                )
 
                 # Tell SimPy to start the stroke assessment function with
                 # this patient (the generator function that will model the
@@ -390,6 +400,11 @@ class Model:
                 self.env.process(self.stroke_assessment(p))
 
                 sampled_inter = random.expovariate(0.025 / g.patient_inter_day)
+                trace(
+                    time=self.env.now,
+                    debug=g.show_trace,
+                    msg=f"⏲️ Next patient arriving in {sampled_inter:.1f} minutes",
+                )
 
                 # Freeze this instance of this function in place until the
                 # inter-arrival time has elapsed.
@@ -413,6 +428,12 @@ class Model:
                 # defined above. patient counter ID passed from above to patient
                 # class.
                 p = Patient(self.patient_counter)
+                trace(
+                    time=self.env.now,
+                    debug=g.show_trace,
+                    msg=f"🌙 Patient {self.patient_counter} (OOH) Generated at {minutes_to_ampm(int(self.env.now % 1440))}",
+                    identifier=self.patient_counter,
+                )
 
                 # Tell SimPy to start the stroke assessment function with
                 # this patient (the generator function that will model the
@@ -420,6 +441,11 @@ class Model:
                 self.env.process(self.stroke_assessment(p))
 
                 sampled_inter = random.expovariate(0.0075 / g.patient_inter_night)
+                trace(
+                    time=self.env.now,
+                    debug=g.show_trace,
+                    msg=f"⏲️ Next OOH patient arriving in {sampled_inter:.1f} minutes",
+                )
 
                 # Freeze this instance of this function in place until the
                 # inter-arrival time has elapsed.
@@ -438,12 +464,21 @@ class Model:
             g.ctp_unav = True
             with self.ctp_scanner.request(priority=-1) as req:
                 yield req
-
+                trace(
+                    time=self.env.now,
+                    debug=g.show_trace,
+                    msg=f"🔬 CT scanner OFFLINE at {minutes_to_ampm(int(self.env.now % 1440))}",
+                )
                 # Freeze with the scanners held in place for the unavailability
                 # time, in the model this means patients admitted in this time
                 # will not have a ctp scan.
                 # freq and unav times are set in the g class
                 yield self.env.timeout(g.ctp_unav_time)
+                trace(
+                    time=self.env.now,
+                    debug=g.show_trace,
+                    msg=f"🔬 CT scanner back ONLINE at {minutes_to_ampm(int(self.env.now % 1440))}",
+                )
                 g.ctp_unav = False
 
     def obstruct_sdec(self):
@@ -455,12 +490,22 @@ class Model:
             g.sdec_unav = True
             with self.sdec_bed.request(priority=-1) as req:
                 yield req
+                trace(
+                    time=self.env.now,
+                    debug=g.show_trace,
+                    msg=f"🏥 SDEC CLOSES at {minutes_to_ampm(int(self.env.now % 1440))}",
+                )
 
                 # Freeze with the SDEC held in place for the unavailability
                 # time, in the model this means patients admitted in this time
                 # will not have passed through the SDEC.
                 # freq and unav times are set in the g class
                 yield self.env.timeout(g.sdec_unav_time)
+                trace(
+                    time=self.env.now,
+                    debug=g.show_trace,
+                    msg=f"🏥 SDEC OPENS at {minutes_to_ampm(int(self.env.now % 1440))}",
+                )
                 g.sdec_unav = False
                 if self.env.now > g.warm_up_period:
                     self.sdec_freeze_counter += 1
