@@ -1,3 +1,6 @@
+import pandas as pd
+from model_code.stroke_admission_classes import g, Trial
+
 # This code asks the user if they want to generate cvs per run
 csv_input = False
 

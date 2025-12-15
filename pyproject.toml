@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=65.5", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+version = "0.1.0"
+name = "stroke_ward_model"
+description = "Discrete event simulation of stroke ward with SDEC and CT perfusion scanner"
+authors = [
+    {name = ""},
+    {name = "Sammi Rosser"}
+    ]
+readme = "README.md"
+keywords = ["simulation", "stroke", "discrete event"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["stroke_ward_model*"]
