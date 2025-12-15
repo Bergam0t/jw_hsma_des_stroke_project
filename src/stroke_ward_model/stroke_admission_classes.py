@@ -7,9 +7,112 @@ import matplotlib.pyplot as plt
 import csv
 
 # Global class to store parameters for the model.
-
-
 class g:
+    """
+    Global simulation configuration parameters.
+
+    This class stores all model-wide constants used in the discrete-event
+    simulation, including runtime settings, resource capacities, operational
+    constraints, diagnosis-based length-of-stay (LOS) values, cost parameters,
+    and state flags modified during execution. All attributes are class
+    variables and are intended to be accessed without instantiation.
+
+    GENAI declaration (SR): this docstring has been generated with the aid of
+    ChatGPT 5.1.
+    All generated content has been thoroughly reviewed.
+
+    Attributes
+    ----------
+    sim_duration : int
+        Total simulated time in minutes (default: 525600, one year).
+    number_of_runs : int
+        Number of simulation replications.
+    warm_up_period : float
+        Number of minutes considered warm-up (not included in statistics),
+        defined as one-fifth of the total simulation time.
+    # TODO: I'm not sure this interpretation is entirely correct,
+    # seeing how it is then used within the patient generator
+    patient_inter_day : int
+        Interarrival time (minutes) for daytime patient generation.
+    patient_inter_night : int
+        Interarrival time (minutes) for nighttime patient generation.
+    number_of_nurses : int
+        Number of nurses available in the system.
+    mean_n_consult_time : int
+        Mean consultation time in minutes.
+    mean_n_ct_time : int
+        Mean CT processing time in minutes.
+    number_of_ctp : int
+        Number of CT processing units available.
+    sdec_beds : int
+        Number of SDEC (Same Day Emergency Care) beds.
+    mean_n_sdec_time : int
+        Mean SDEC stay duration in minutes.
+    number_of_ward_beds : int
+        Number of inpatient ward beds.
+
+    mean_n_i_ward_time_mrs_0 to mean_n_i_ward_time_mrs_5 : int
+        Inpatient LOS (minutes) for ischemic stroke by modified Rankin Scale (0–5).
+    mean_n_ich_ward_time_mrs_0 to mean_n_ich_ward_time_mrs_5 : int
+        Inpatient LOS (minutes) for intracerebral hemorrhage by MRS score.
+    mean_n_non_stroke_ward_time : int
+        LOS (minutes) for non-stroke patients (TODO: CHECK INTERPRETATION).
+    mean_n_tia_ward_time : int
+        LOS (minutes) for TIA patients.
+    thrombolysis_los_save : float
+        Proportional reduction in LOS for thrombolysed patients.
+    mean_mrs : int
+        Default/mean modified Rankin Scale score used in the model.
+
+    TODO: CHECK INTERPRETATION
+    ich : int
+        Percentage likelihood of intracerebral hemorrhage diagnosis.
+    i : int
+        Percentage likelihood of ischemic stroke diagnosis.
+    tia : int
+        Percentage likelihood of TIA diagnosis.
+    stroke_mimic : int
+        Percentage likelihood of stroke mimic diagnosis.
+
+    tia_admission : int
+        Percentage chance that a TIA requires admission.
+    stroke_mimic_admission : int
+        Percentage chance that a stroke mimic requires admission.
+
+    sdec_dr_cost_min : float
+        Cost per minute for SDEC doctor time.
+    inpatient_bed_cost : float
+        Cost of a standard inpatient bed stay.
+    inpatient_bed_cost_thrombolysis : float
+        Cost of an inpatient stay following thrombolysis.
+
+    sdec_unav_time : int
+        Operational unavailability duration of SDEC
+    sdec_unav_freq : int
+        How often SDEC unavailability duration occurs
+    ctp_unav_time : int
+        Operational unavailability duration of CT perfusion scanner
+    ctp_unav_freq : int
+        How often CT perfusion unavailability duration occurs
+
+    sdec_unav : bool
+        Indicates whether SDEC is unavailable.
+    ctp_unav : bool
+        Indicates whether CT processing is unavailable.
+    write_to_csv : bool
+        Whether the simulation should write results to CSV.
+    gen_graph : bool
+        Whether visualisation graphs should be generated.
+    therapy_sdec : bool
+        Whether therapy is delivered through SDEC.
+    trials_run_counter : int
+        Internal counter tracking completed simulation replications.
+    patient_arrival_gen_1 : bool
+        Flag used by the simulation to control one patient arrival stream.
+    patient_arrival_gen_2 : bool
+        Flag used by the simulation to control a second patient arrival stream.
+    """
+
     # 525600 (Year of Minutes)
     sim_duration = 525600
     number_of_runs = 10
@@ -83,9 +186,69 @@ class g:
 
 
 # Patient class to store patient attributes
-
-
 class Patient:
+    """
+    Representation of an individual patient within the simulation.
+
+    A `Patient` object stores all clinical, pathway, and state-related
+    attributes required for modelling flow through the stroke/TIA care
+    process. Several characteristics (onset type, MRS score, diagnosis
+    category, admission likelihood) are randomly generated on creation
+    using parameters defined in the global configuration class `g`.
+
+    GENAI declaration (SR): this docstring has been generated with the aid
+    of ChatGPT 5.1.
+    All generated content has been thoroughly reviewed.
+
+    Parameters
+    ----------
+    p_id : int or str
+        Unique identifier for the patient.
+
+    Attributes
+    ----------
+    id : int or str
+        Patient identifier.
+    q_time_nurse : float
+        Time spent waiting for nursing assessment or consultation.
+    q_time_ward : float
+        Time spent waiting for an inpatient ward bed.
+    onset_type : int
+        Categorisation of onset information:
+        - 0 : Known onset
+        - 1 : Unknown onset but within CTP window
+        - 2 : Unknown onset and outside CTP window
+    mrs_type : int
+        Modified Rankin Scale score at presentation (0–5).
+        Drawn from an exponential distribution and capped at 5.
+    mrs_discharge : int
+        Modified Rankin Scale score at discharge (set later by the model).
+    diagnosis : int
+        Raw randomised diagnostic value (0–100). Used to map to a clinical
+        category based on thresholds defined in `g`.
+    patient_diagnosis : int
+        Encoded diagnosis category:
+        - 0 : Intracerebral haemorrhage (ICH)
+        - 1 : Ischaemic stroke (I)
+        - 2 : Transient ischaemic attack (TIA)
+        - 3 : Stroke mimic
+        - 4 : Non-stroke
+    priority : int
+        Triage priority level (used for queue ordering).
+    non_admission : int
+        Randomised admission likelihood score (0–100).
+    advanced_ct_pathway : bool
+        Whether the patient enters an advanced CT imaging pathway.
+    sdec_pathway : bool
+        Whether the patient is routed through SDEC.
+    thrombolysis : bool
+        Whether the patient receives thrombolysis.
+    thrombectomy : bool
+        Whether the patient receives thrombectomy.
+    admission_avoidance : bool
+        Whether the patient is suitable for or receives admission avoidance.
+    """
+
     def __init__(self, p_id):
         self.id = p_id
         self.q_time_nurse = 0
