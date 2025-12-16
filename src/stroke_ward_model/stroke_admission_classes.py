@@ -8,6 +8,7 @@ from sim_tools.trace import trace
 from stroke_ward_model.utils import minutes_to_ampm
 
 
+# MARK: g
 # Global class to store parameters for the model.
 class g:
     """
@@ -192,6 +193,7 @@ class g:
     show_trace = True
 
 
+# MARK: Patient
 # Patient class to store patient attributes
 class Patient:
     """
@@ -372,6 +374,7 @@ class Model:
         self.occupancy_graph_df["Time"] = [0.0]
         self.occupancy_graph_df["Ward Occupancy"] = [0.0]
 
+    # MARK: in-hours arrivals
     # A generator function for the patient arrivals in hours.
     def generator_patient_arrivals(self):
         while True:
@@ -413,6 +416,7 @@ class Model:
             else:
                 yield self.env.timeout(1)
 
+    # MARK: OOH arrivals
     # A generator function for the patient arrivals out of hours.
     def generator_patient_arrivals_ooh(self):
         while True:
@@ -454,6 +458,7 @@ class Model:
             else:
                 yield self.env.timeout(1)
 
+    # MARK: Obstruct CTP
     def obstruct_ctp(self):
         while True:
             yield self.env.timeout(g.ctp_unav_freq)
@@ -481,6 +486,7 @@ class Model:
                 )
                 g.ctp_unav = False
 
+    # MARK: Obstruct SDEC
     def obstruct_sdec(self):
         while True:
             yield self.env.timeout(g.sdec_unav_freq)
@@ -510,6 +516,7 @@ class Model:
                 if self.env.now > g.warm_up_period:
                     self.sdec_freeze_counter += 1
 
+    # MARK: Stroke assessment
     # A generator function that represents the pathway for a patient going
     # through the stroke assessment process.
     # The patient object is passed in to the generator function so we can
@@ -612,6 +619,7 @@ class Model:
                     sampled_nurse_act_time
                 )
 
+        # MARK: CT Perfusion Scanner Use
         # The if formula below checks to see if the CTP scanner is active
         # and if it is the following code is followed including updating the
         # patient advanced CT pathway attribute
@@ -685,6 +693,7 @@ class Model:
         if self.env.now > g.warm_up_period:
             self.results_df.at[patient.id, "SDEC Status"] = g.sdec_unav
 
+        # MARK: SDEC Admission
         # The if statement below checks if the SDEC pathway is active at this
         # given time and if there is space in the SDEC itself.
 
@@ -846,6 +855,7 @@ class Model:
         ):
             patient.admission_avoidance = True
 
+        # MARK: Ward Admission
         # once all the above code has been run all patients who will not admit
         # have a True admission avoidance attribute. For all the patients that
         # remain false, the below code will run simulating the admission to the
@@ -889,6 +899,12 @@ class Model:
                 # The below code checks the patients diagnosis and MRS,
                 # adjusting MRS change and LOS baised on these. This code is
                 # for ICH patients.
+
+                ###############################
+                # MARK: Patient diagnosis = 0 #
+                # Intracerebral haemorrhage   #
+                # Unsuitable for thrombolysis #
+                ###############################
 
                 if patient.patient_diagnosis == 0 and patient.mrs_type == 0:
                     sampled_ward_act_time = random.expovariate(
@@ -937,6 +953,13 @@ class Model:
                     patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
                     yield self.env.timeout(sampled_ward_act_time)
                     self.ward_occupancy.remove(patient)
+
+                ###############################
+                # MARK: Patient diagnosis = 1 #
+                # Ischaemic Stroke            #
+                # Some may be suitable for    #
+                # thrombolysis                #
+                ###############################
 
                 # The below code checks the patients diagnosis and MRS,
                 # adjusting MRS change and LOS baised on these. This code is
@@ -1101,6 +1124,10 @@ class Model:
                         yield self.env.timeout(sampled_ward_act_time)
                         self.ward_occupancy.remove(patient)
 
+                ###############################
+                # MARK: Patient diagnosis = 2 #
+                # Transient Ischaemic Attack  #
+                ###############################
                 # The below code is for the non stroke diagnosis.
 
                 if patient.patient_diagnosis == 2:
@@ -1110,6 +1137,10 @@ class Model:
                     yield self.env.timeout(sampled_ward_act_time)
                     self.ward_occupancy.remove(patient)
 
+                ###############################
+                # MARK: Patient diagnosis > 2 #
+                # Stroke mimic OR non-stroke  #
+                ###############################
                 if patient.patient_diagnosis > 2:
                     sampled_ward_act_time = random.expovariate(
                         1.0 / g.mean_n_non_stroke_ward_time
@@ -1127,6 +1158,7 @@ class Model:
                     patient.mrs_type - patient.mrs_discharge
                 )
 
+            # MARK: Discharged from main ward
     # This method calculates results over a single run.
 
     def calculate_run_results(self):
@@ -1239,6 +1271,7 @@ class Model:
 
             fig.show()
 
+    # MARK: run model
     # The run method starts up the DES entity generators, runs the simulation,
     # and in turns calls anything we need to generate results for the run
 
