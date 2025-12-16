@@ -387,6 +387,9 @@ class Model:
         self.occupancy_graph_df["Time"] = [0.0]
         self.occupancy_graph_df["Ward Occupancy"] = [0.0]
 
+        # A list to store the patient objects
+        self.patient_objects = []
+
     # MARK: in-hours arrivals
     # A generator function for the patient arrivals in hours.
     def generator_patient_arrivals(self):
@@ -403,6 +406,8 @@ class Model:
                 # defined above. patient counter ID passed from above to patient
                 # class.
                 p = Patient(self.patient_counter)
+                self.patient_objects.append(p)
+
                 trace(
                     time=self.env.now,
                     debug=g.show_trace,
@@ -451,6 +456,8 @@ class Model:
                 # defined above. patient counter ID passed from above to patient
                 # class.
                 p = Patient(self.patient_counter)
+                self.patient_objects.append(p)
+
                 trace(
                     time=self.env.now,
                     debug=g.show_trace,
