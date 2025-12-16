@@ -283,6 +283,17 @@ class Patient:
         self.thrombectomy = False
         self.admission_avoidance = False
 
+        # NOTE: Additional items added by SR
+        self.ward_los = np.NaN
+        self.ward_los_thrombolysis = np.NaN
+        self.sdec_los = np.NaN
+        self.ctp_duration = np.NaN
+        self.ct_duration = np.NaN
+        self.arrived_ooh = False
+        self.generated_during_warm_up = False
+        self.patient_diagnosis_type = None
+
+
 # MARK: Model
 # Class representing the model of the stroke assessment / treatment process
 class Model:
@@ -399,6 +410,10 @@ class Model:
                     identifier=self.patient_counter,
                 )
 
+                p.arrived_ooh = False
+                if self.env.now < g.warm_up_period:
+                    p.generated_during_warm_up = True
+
                 # Tell SimPy to start the stroke assessment function with
                 # this patient (the generator function that will model the
                 # patient's journey through the system)
@@ -443,6 +458,10 @@ class Model:
                     identifier=p.id,
                     config=g.trace_config,
                 )
+
+                p.arrived_ooh = True
+                if self.env.now < g.warm_up_period:
+                    p.generated_during_warm_up = True
 
                 # Tell SimPy to start the stroke assessment function with
                 # this patient (the generator function that will model the
@@ -668,7 +687,7 @@ class Model:
             # be updated to a log normal distribution
 
             sampled_ctp_act_time = random.expovariate(1.0 / g.mean_n_ct_time)
-
+            patient.ctp_duration = sampled_ctp_act_time
             # Freeze this function in place for the activity time that was
             # sampled above.
             yield self.env.timeout(sampled_ctp_act_time)
@@ -698,6 +717,7 @@ class Model:
                 config=g.trace_config,
             )
             sampled_ct_act_time = random.expovariate(1.0 / g.mean_n_ct_time)
+            patient.ct_duration = sampled_ct_act_time
 
             yield self.env.timeout(sampled_ct_act_time)
 
@@ -821,6 +841,7 @@ class Model:
 
             sampled_sdec_stay_time = random.expovariate(1.0 / g.mean_n_sdec_time)
 
+            patient.sdec_los = sampled_sdec_stay_time
             # Freeze this function in place for the activity time we sampled
             # above.
             trace(
@@ -863,14 +884,19 @@ class Model:
 
         if patient.patient_diagnosis == 0 and self.env.now > g.warm_up_period:
             self.results_df.at[patient.id, "Diagnosis Type"] = "ICH"
+            patient.patient_diagnosis_type = "ICH"
         elif patient.patient_diagnosis == 1 and self.env.now > g.warm_up_period:
             self.results_df.at[patient.id, "Diagnosis Type"] = "I"
+            patient.patient_diagnosis_type = "I"
         elif patient.patient_diagnosis == 2 and self.env.now > g.warm_up_period:
             self.results_df.at[patient.id, "Diagnosis Type"] = "TIA"
+            patient.patient_diagnosis_type = "TIA"
         elif patient.patient_diagnosis == 3 and self.env.now > g.warm_up_period:
             self.results_df.at[patient.id, "Diagnosis Type"] = "Stroke Mimic"
+            patient.patient_diagnosis_type = "Stroke Mimic"
         elif patient.patient_diagnosis == 4 and self.env.now > g.warm_up_period:
             self.results_df.at[patient.id, "Diagnosis Type"] = "Non Stroke"
+            patient.patient_diagnosis_type = "Non Stroke"
 
         if self.env.now > g.warm_up_period:
             self.results_df.at[patient.id, "Onset Type"] = patient.onset_type
@@ -1007,6 +1033,7 @@ class Model:
                         identifier=patient.id,
                         config=g.trace_config,
                     )
+                    patient.ward_los = sampled_ward_act_time
                     yield self.env.timeout(sampled_ward_act_time)
                     self.ward_occupancy.remove(patient)
 
@@ -1022,6 +1049,7 @@ class Model:
                         identifier=patient.id,
                         config=g.trace_config,
                     )
+                    patient.ward_los = sampled_ward_act_time
                     yield self.env.timeout(sampled_ward_act_time)
                     self.ward_occupancy.remove(patient)
 
@@ -1037,6 +1065,7 @@ class Model:
                         identifier=patient.id,
                         config=g.trace_config,
                     )
+                    patient.ward_los = sampled_ward_act_time
                     yield self.env.timeout(sampled_ward_act_time)
                     self.ward_occupancy.remove(patient)
 
@@ -1052,6 +1081,7 @@ class Model:
                         identifier=patient.id,
                         config=g.trace_config,
                     )
+                    patient.ward_los = sampled_ward_act_time
                     yield self.env.timeout(sampled_ward_act_time)
                     self.ward_occupancy.remove(patient)
 
@@ -1067,6 +1097,7 @@ class Model:
                         identifier=patient.id,
                         config=g.trace_config,
                     )
+                    patient.ward_los = sampled_ward_act_time
                     yield self.env.timeout(sampled_ward_act_time)
                     self.ward_occupancy.remove(patient)
 
@@ -1082,6 +1113,7 @@ class Model:
                         identifier=patient.id,
                         config=g.trace_config,
                     )
+                    patient.ward_los = sampled_ward_act_time
                     yield self.env.timeout(sampled_ward_act_time)
                     self.ward_occupancy.remove(patient)
 
@@ -1109,6 +1141,7 @@ class Model:
                         identifier=patient.id,
                         config=g.trace_config,
                     )
+                    patient.ward_los = sampled_ward_act_time
                     yield self.env.timeout(sampled_ward_act_time)
                     self.ward_occupancy.remove(patient)
 
@@ -1128,6 +1161,9 @@ class Model:
                             identifier=patient.id,
                             config=g.trace_config,
                         )
+                        patient.ward_los_thrombolysis = (
+                            sampled_ward_act_time_thrombolysis
+                        )
                         yield self.env.timeout(sampled_ward_act_time_thrombolysis)
                         if (
                             self.env.now > g.warm_up_period
@@ -1153,6 +1189,7 @@ class Model:
                             identifier=patient.id,
                             config=g.trace_config,
                         )
+                        patient.ward_los = sampled_ward_act_time
                         yield self.env.timeout(sampled_ward_act_time)
                         self.ward_occupancy.remove(patient)
 
@@ -1172,6 +1209,9 @@ class Model:
                             identifier=patient.id,
                             config=g.trace_config,
                         )
+                        patient.ward_los_thrombolysis = (
+                            sampled_ward_act_time_thrombolysis
+                        )
                         yield self.env.timeout(sampled_ward_act_time_thrombolysis)
                         if (
                             self.env.now > g.warm_up_period
@@ -1197,6 +1237,7 @@ class Model:
                             identifier=patient.id,
                             config=g.trace_config,
                         )
+                        patient.ward_los = sampled_ward_act_time
                         yield self.env.timeout(sampled_ward_act_time)
                         self.ward_occupancy.remove(patient)
 
@@ -1216,6 +1257,9 @@ class Model:
                             identifier=patient.id,
                             config=g.trace_config,
                         )
+                        patient.ward_los_thrombolysis = (
+                            sampled_ward_act_time_thrombolysis
+                        )
                         yield self.env.timeout(sampled_ward_act_time_thrombolysis)
                         if (
                             self.env.now > g.warm_up_period
@@ -1241,6 +1285,7 @@ class Model:
                             identifier=patient.id,
                             config=g.trace_config,
                         )
+                        patient.ward_los = sampled_ward_act_time
                         yield self.env.timeout(sampled_ward_act_time)
                         self.ward_occupancy.remove(patient)
 
@@ -1260,6 +1305,9 @@ class Model:
                             identifier=patient.id,
                             config=g.trace_config,
                         )
+                        patient.ward_los_thrombolysis = (
+                            sampled_ward_act_time_thrombolysis
+                        )
                         yield self.env.timeout(sampled_ward_act_time_thrombolysis)
                         if (
                             self.env.now > g.warm_up_period
@@ -1285,6 +1333,7 @@ class Model:
                             identifier=patient.id,
                             config=g.trace_config,
                         )
+                        patient.ward_los = sampled_ward_act_time
                         yield self.env.timeout(sampled_ward_act_time)
                         self.ward_occupancy.remove(patient)
 
@@ -1304,6 +1353,10 @@ class Model:
                             identifier=patient.id,
                             config=g.trace_config,
                         )
+                        # Record generated LOS in patient object
+                        patient.ward_los_thrombolysis = (
+                            sampled_ward_act_time_thrombolysis
+                        )
                         yield self.env.timeout(sampled_ward_act_time_thrombolysis)
                         if (
                             self.env.now > g.warm_up_period
@@ -1329,6 +1382,8 @@ class Model:
                             identifier=patient.id,
                             config=g.trace_config,
                         )
+                        # Record generated LOS in patient object
+                        patient.ward_los = sampled_ward_act_time
                         yield self.env.timeout(sampled_ward_act_time)
                         self.ward_occupancy.remove(patient)
 
@@ -1349,6 +1404,8 @@ class Model:
                         identifier=patient.id,
                         config=g.trace_config,
                     )
+                    # Record generated LOS in patient object
+                    patient.ward_los = sampled_ward_act_time
                     yield self.env.timeout(sampled_ward_act_time)
                     self.ward_occupancy.remove(patient)
 
@@ -1369,6 +1426,8 @@ class Model:
                         config=g.trace_config,
                     )
 
+                    # Record generated LOS in patient object
+                    patient.ward_los = sampled_ward_act_time
                     yield self.env.timeout(sampled_ward_act_time)
                     self.ward_occupancy.remove(patient)
 
