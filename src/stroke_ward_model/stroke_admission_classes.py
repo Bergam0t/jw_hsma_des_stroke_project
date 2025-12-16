@@ -191,6 +191,8 @@ class g:
     patient_arrival_gen_2 = False
 
     show_trace = True
+    tracked_cases = list(range(1, 1000))
+    trace_config = {"tracked": tracked_cases}
 
 
 # MARK: Patient
@@ -281,7 +283,7 @@ class Patient:
         self.thrombectomy = False
         self.admission_avoidance = False
 
-
+# MARK: Model
 # Class representing the model of the stroke assessment / treatment process
 class Model:
     # Constructor to set up the model for a run. We pass in a run number when
@@ -407,6 +409,8 @@ class Model:
                     time=self.env.now,
                     debug=g.show_trace,
                     msg=f"⏲️ Next patient arriving in {sampled_inter:.1f} minutes",
+                    config=g.trace_config,
+                    identifier=p.id,
                 )
 
                 # Freeze this instance of this function in place until the
@@ -435,8 +439,9 @@ class Model:
                 trace(
                     time=self.env.now,
                     debug=g.show_trace,
-                    msg=f"🌙 Patient {self.patient_counter} (OOH) Generated at {minutes_to_ampm(int(self.env.now % 1440))}",
-                    identifier=self.patient_counter,
+                    msg=f"🌙 Patient {p.id} (OOH) generated at {minutes_to_ampm(int(self.env.now % 1440))}. Diagnosis: {p.diagnosis}. MRS type: {p.mrs_type}.",
+                    identifier=p.id,
+                    config=g.trace_config,
                 )
 
                 # Tell SimPy to start the stroke assessment function with
@@ -449,6 +454,8 @@ class Model:
                     time=self.env.now,
                     debug=g.show_trace,
                     msg=f"⏲️ Next OOH patient arriving in {sampled_inter:.1f} minutes",
+                    identifier=p.id,
+                    config=g.trace_config,
                 )
 
                 # Freeze this instance of this function in place until the
@@ -472,7 +479,9 @@ class Model:
                 trace(
                     time=self.env.now,
                     debug=g.show_trace,
-                    msg=f"🔬 CT scanner OFFLINE at {minutes_to_ampm(int(self.env.now % 1440))}",
+                    msg=f"🔬 CTP scanner OFFLINE at {minutes_to_ampm(int(self.env.now % 1440))}",
+                    identifier=self.patient_counter,
+                    config=g.trace_config,
                 )
                 # Freeze with the scanners held in place for the unavailability
                 # time, in the model this means patients admitted in this time
@@ -482,7 +491,9 @@ class Model:
                 trace(
                     time=self.env.now,
                     debug=g.show_trace,
-                    msg=f"🔬 CT scanner back ONLINE at {minutes_to_ampm(int(self.env.now % 1440))}",
+                    msg=f"🔬 CTP scanner back ONLINE at {minutes_to_ampm(int(self.env.now % 1440))}",
+                    identifier=self.patient_counter,
+                    config=g.trace_config,
                 )
                 g.ctp_unav = False
 
@@ -500,6 +511,8 @@ class Model:
                     time=self.env.now,
                     debug=g.show_trace,
                     msg=f"🏥 SDEC CLOSES at {minutes_to_ampm(int(self.env.now % 1440))}",
+                    identifier=self.patient_counter,
+                    config=g.trace_config,
                 )
 
                 # Freeze with the SDEC held in place for the unavailability
@@ -511,6 +524,8 @@ class Model:
                     time=self.env.now,
                     debug=g.show_trace,
                     msg=f"🏥 SDEC OPENS at {minutes_to_ampm(int(self.env.now % 1440))}",
+                    identifier=self.patient_counter,
+                    config=g.trace_config,
                 )
                 g.sdec_unav = False
                 if self.env.now > g.warm_up_period:
@@ -545,6 +560,13 @@ class Model:
             patient.patient_diagnosis = 3
         elif patient.diagnosis > self.non_stroke_range:
             patient.patient_diagnosis = 4
+        trace(
+            time=self.env.now,
+            debug=g.show_trace,
+            msg=f"Patient {patient.id} Patient Diagnosis (category 1-4): {patient.patient_diagnosis}.",
+            identifier=patient.id,
+            config=g.trace_config,
+        )
 
         # Record the time the patient started queuing for a nurse
         start_q_nurse = self.env.now
@@ -574,6 +596,13 @@ class Model:
             # Freeze the function until the request for a nurse can be met.
             # The patient is currently queuing.
             yield req
+            trace(
+                time=self.env.now,
+                debug=g.show_trace,
+                msg=f"👩‍⚕️ Patient {patient.id} is being seen by a nurse.",
+                identifier=patient.id,
+                config=g.trace_config,
+            )
 
             # Control is passed back to the generator function once the request
             # is met for a nurse. As the queue for the nurse is finished
@@ -625,6 +654,14 @@ class Model:
         # patient advanced CT pathway attribute
 
         if g.ctp_unav == False:
+            trace(
+                time=self.env.now,
+                debug=g.show_trace,
+                msg=f"➡️ Patient {patient.id} sent on CTP scanner pathway.",
+                identifier=patient.id,
+                config=g.trace_config,
+            )
+
             patient.advanced_ct_pathway = True
 
             # Randomly sample the mean ct time, as with above this may need to
@@ -635,6 +672,13 @@ class Model:
             # Freeze this function in place for the activity time that was
             # sampled above.
             yield self.env.timeout(sampled_ctp_act_time)
+            trace(
+                time=self.env.now,
+                debug=g.show_trace,
+                msg=f"➡️ Patient {patient.id} finishes CTP scan after {sampled_ctp_act_time:.1f} minutes.",
+                identifier=patient.id,
+                config=g.trace_config,
+            )
 
             # Add data to the DF afer the warm up period.
 
@@ -646,9 +690,24 @@ class Model:
         # advanced CT pathway remains False.
 
         else:
+            trace(
+                time=self.env.now,
+                debug=g.show_trace,
+                msg=f"🚫 Patient {patient.id} NOT sent on CTP scanner pathway - normal CT scan commencing.",
+                identifier=patient.id,
+                config=g.trace_config,
+            )
             sampled_ct_act_time = random.expovariate(1.0 / g.mean_n_ct_time)
 
             yield self.env.timeout(sampled_ct_act_time)
+
+            trace(
+                time=self.env.now,
+                debug=g.show_trace,
+                msg=f"🚫 Patient {patient.id} finishes normal CT scan after {sampled_ct_act_time:.1f} minutes.",
+                identifier=patient.id,
+                config=g.trace_config,
+            )
 
             if self.env.now > g.warm_up_period:
                 self.results_df.at[patient.id, "Time with CT"] = sampled_ct_act_time
@@ -701,6 +760,13 @@ class Model:
             # If the conditions above are met the patient attribute for the SDEC
             # are changed to True and the patient is added to the SDEC occupancy
             # list.
+            trace(
+                time=self.env.now,
+                debug=g.show_trace,
+                msg=f"🛏️🏎️ Patient {patient.id} admitted to SDEC (occupancy before admission: {len(self.sdec_occupancy)} of {g.sdec_beds} SDEC beds).",
+                identifier=patient.id,
+                config=g.trace_config,
+            )
 
             self.sdec_occupancy.append(patient)
 
@@ -757,6 +823,13 @@ class Model:
 
             # Freeze this function in place for the activity time we sampled
             # above.
+            trace(
+                time=self.env.now,
+                debug=g.show_trace,
+                msg=f"Patient {patient.id} (diagnosis {patient.diagnosis} ({patient.patient_diagnosis}), MRS type {patient.mrs_type}) will be in SDEC for {sampled_sdec_stay_time:.1f} minutes ({(sampled_sdec_stay_time / 60 / 24):.1f} days).",
+                identifier=patient.id,
+                config=g.trace_config,
+            )
             yield self.env.timeout(sampled_sdec_stay_time)
 
             # This code checks if the ward is full, if this is the case the
@@ -775,6 +848,15 @@ class Model:
 
             if self.env.now > g.warm_up_period:
                 self.results_df.at[patient.id, "Time in SDEC"] = sampled_sdec_stay_time
+
+            # MARK: Discharged from SDEC
+            trace(
+                time=self.env.now,
+                debug=g.show_trace,
+                msg=f"🏎️ Patient {patient.id} discharged from SDEC after {patient.sdec_los:.1f} minutes ({(patient.sdec_los / 60 / 24):.1f} days). Occupancy after discharge: {len(self.sdec_occupancy)} of {g.sdec_beds} SDEC beds)",
+                identifier=patient.id,
+                config=g.trace_config,
+            )
 
         # The below code records the patients diagnosis attribute, this is added
         # to the DF to check the diagnosis code is working correctly.
@@ -877,6 +959,13 @@ class Model:
                 # Add patient to the ward list
 
                 self.ward_occupancy.append(patient)
+                trace(
+                    time=self.env.now,
+                    debug=g.show_trace,
+                    msg=f"🛏️ Patient {patient.id} admitted to main ward. Occupancy after admission: {len(self.ward_occupancy)} of {g.number_of_ward_beds} ward beds",
+                    identifier=patient.id,
+                    config=g.trace_config,
+                )
 
                 if self.env.now > g.warm_up_period:
                     self.results_df.at[patient.id, "Ward Occupancy"] = len(
@@ -911,6 +1000,13 @@ class Model:
                         1.0 / g.mean_n_ich_ward_time_mrs_0
                     )
                     patient.mrs_discharge = patient.mrs_type
+                    trace(
+                        time=self.env.now,
+                        debug=g.show_trace,
+                        msg=f"Patient {patient.id} (diagnosis {patient.diagnosis} ({patient.patient_diagnosis}), MRS type {patient.mrs_type}) will be in ward for {sampled_ward_act_time:.1f} minutes ({(sampled_ward_act_time / 60 / 24):.1f} days).",
+                        identifier=patient.id,
+                        config=g.trace_config,
+                    )
                     yield self.env.timeout(sampled_ward_act_time)
                     self.ward_occupancy.remove(patient)
 
@@ -919,6 +1015,13 @@ class Model:
                         1.0 / g.mean_n_ich_ward_time_mrs_1
                     )
                     patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                    trace(
+                        time=self.env.now,
+                        debug=g.show_trace,
+                        msg=f"Patient {patient.id} (diagnosis {patient.diagnosis} ({patient.patient_diagnosis}), MRS type {patient.mrs_type}) will be in ward for {sampled_ward_act_time:.1f} minutes ({(sampled_ward_act_time / 60 / 24):.1f} days).",
+                        identifier=patient.id,
+                        config=g.trace_config,
+                    )
                     yield self.env.timeout(sampled_ward_act_time)
                     self.ward_occupancy.remove(patient)
 
@@ -927,6 +1030,13 @@ class Model:
                         1.0 / g.mean_n_ich_ward_time_mrs_2
                     )
                     patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                    trace(
+                        time=self.env.now,
+                        debug=g.show_trace,
+                        msg=f"Patient {patient.id} (diagnosis {patient.diagnosis} ({patient.patient_diagnosis}), MRS type {patient.mrs_type}) will be in ward for {sampled_ward_act_time:.1f} minutes ({(sampled_ward_act_time / 60 / 24):.1f} days).",
+                        identifier=patient.id,
+                        config=g.trace_config,
+                    )
                     yield self.env.timeout(sampled_ward_act_time)
                     self.ward_occupancy.remove(patient)
 
@@ -935,6 +1045,13 @@ class Model:
                         1.0 / g.mean_n_ich_ward_time_mrs_3
                     )
                     patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                    trace(
+                        time=self.env.now,
+                        debug=g.show_trace,
+                        msg=f"Patient {patient.id} (diagnosis {patient.diagnosis} ({patient.patient_diagnosis}), MRS type {patient.mrs_type}) will be in ward for {sampled_ward_act_time:.1f} minutes ({(sampled_ward_act_time / 60 / 24):.1f} days).",
+                        identifier=patient.id,
+                        config=g.trace_config,
+                    )
                     yield self.env.timeout(sampled_ward_act_time)
                     self.ward_occupancy.remove(patient)
 
@@ -943,6 +1060,13 @@ class Model:
                         1.0 / g.mean_n_ich_ward_time_mrs_4
                     )
                     patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                    trace(
+                        time=self.env.now,
+                        debug=g.show_trace,
+                        msg=f"Patient {patient.id} (diagnosis {patient.diagnosis} ({patient.patient_diagnosis}), MRS type {patient.mrs_type}) will be in ward for {sampled_ward_act_time:.1f} minutes ({(sampled_ward_act_time / 60 / 24):.1f} days).",
+                        identifier=patient.id,
+                        config=g.trace_config,
+                    )
                     yield self.env.timeout(sampled_ward_act_time)
                     self.ward_occupancy.remove(patient)
 
@@ -951,6 +1075,13 @@ class Model:
                         1.0 / g.mean_n_ich_ward_time_mrs_5
                     )
                     patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                    trace(
+                        time=self.env.now,
+                        debug=g.show_trace,
+                        msg=f"Patient {patient.id} (diagnosis {patient.diagnosis} ({patient.patient_diagnosis}), MRS type {patient.mrs_type}) will be in ward for {sampled_ward_act_time:.1f} minutes ({(sampled_ward_act_time / 60 / 24):.1f} days).",
+                        identifier=patient.id,
+                        config=g.trace_config,
+                    )
                     yield self.env.timeout(sampled_ward_act_time)
                     self.ward_occupancy.remove(patient)
 
@@ -971,6 +1102,13 @@ class Model:
                         1.0 / g.mean_n_i_ward_time_mrs_0
                     )
                     patient.mrs_discharge = patient.mrs_type
+                    trace(
+                        time=self.env.now,
+                        debug=g.show_trace,
+                        msg=f"Patient {patient.id} (diagnosis {patient.diagnosis} ({patient.patient_diagnosis}), MRS type {patient.mrs_type}) will be in ward for {sampled_ward_act_time:.1f} minutes ({(sampled_ward_act_time / 60 / 24):.1f} days).",
+                        identifier=patient.id,
+                        config=g.trace_config,
+                    )
                     yield self.env.timeout(sampled_ward_act_time)
                     self.ward_occupancy.remove(patient)
 
@@ -983,6 +1121,13 @@ class Model:
                             sampled_ward_act_time * g.thrombolysis_los_save
                         )
                         patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                        trace(
+                            time=self.env.now,
+                            debug=g.show_trace,
+                            msg=f"💉 Patient {patient.id} (diagnosis {patient.diagnosis} ({patient.patient_diagnosis}), MRS type {patient.mrs_type}) THROMBOLYSED. Will be in ward for {sampled_ward_act_time_thrombolysis:.1f} minutes ({(sampled_ward_act_time_thrombolysis / 24 / 60):.1f} days).",
+                            identifier=patient.id,
+                            config=g.trace_config,
+                        )
                         yield self.env.timeout(sampled_ward_act_time_thrombolysis)
                         if (
                             self.env.now > g.warm_up_period
@@ -1001,6 +1146,13 @@ class Model:
                         self.ward_occupancy.remove(patient)
                     else:
                         patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                        trace(
+                            time=self.env.now,
+                            debug=g.show_trace,
+                            msg=f"Patient {patient.id} (diagnosis {patient.diagnosis} ({patient.patient_diagnosis}), MRS type {patient.mrs_type}) will be in ward for {sampled_ward_act_time:.1f} minutes ({(sampled_ward_act_time / 60 / 24):.1f} days).",
+                            identifier=patient.id,
+                            config=g.trace_config,
+                        )
                         yield self.env.timeout(sampled_ward_act_time)
                         self.ward_occupancy.remove(patient)
 
@@ -1013,6 +1165,13 @@ class Model:
                             sampled_ward_act_time * g.thrombolysis_los_save
                         )
                         patient.mrs_discharge = patient.mrs_type - random.randint(0, 2)
+                        trace(
+                            time=self.env.now,
+                            debug=g.show_trace,
+                            msg=f"💉 Patient {patient.id} (diagnosis {patient.diagnosis} ({patient.patient_diagnosis}), MRS type {patient.mrs_type}) THROMBOLYSED. Will be in ward for {sampled_ward_act_time_thrombolysis:.1f} minutes ({(sampled_ward_act_time_thrombolysis / 24 / 60):.1f} days).",
+                            identifier=patient.id,
+                            config=g.trace_config,
+                        )
                         yield self.env.timeout(sampled_ward_act_time_thrombolysis)
                         if (
                             self.env.now > g.warm_up_period
@@ -1031,6 +1190,13 @@ class Model:
                         self.ward_occupancy.remove(patient)
                     else:
                         patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                        trace(
+                            time=self.env.now,
+                            debug=g.show_trace,
+                            msg=f"Patient {patient.id} (diagnosis {patient.diagnosis} ({patient.patient_diagnosis}), MRS type {patient.mrs_type}) will be in ward for {sampled_ward_act_time:.1f} minutes ({(sampled_ward_act_time / 60 / 24):.1f} days).",
+                            identifier=patient.id,
+                            config=g.trace_config,
+                        )
                         yield self.env.timeout(sampled_ward_act_time)
                         self.ward_occupancy.remove(patient)
 
@@ -1043,6 +1209,13 @@ class Model:
                             sampled_ward_act_time * g.thrombolysis_los_save
                         )
                         patient.mrs_discharge = patient.mrs_type - random.randint(0, 2)
+                        trace(
+                            time=self.env.now,
+                            debug=g.show_trace,
+                            msg=f"💉 Patient {patient.id} (diagnosis {patient.diagnosis} ({patient.patient_diagnosis}), MRS type {patient.mrs_type}) THROMBOLYSED. Will be in ward for {sampled_ward_act_time_thrombolysis:.1f} minutes ({(sampled_ward_act_time_thrombolysis / 24 / 60):.1f} days).",
+                            identifier=patient.id,
+                            config=g.trace_config,
+                        )
                         yield self.env.timeout(sampled_ward_act_time_thrombolysis)
                         if (
                             self.env.now > g.warm_up_period
@@ -1061,6 +1234,13 @@ class Model:
                         self.ward_occupancy.remove(patient)
                     else:
                         patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                        trace(
+                            time=self.env.now,
+                            debug=g.show_trace,
+                            msg=f"Patient {patient.id} (diagnosis {patient.diagnosis} ({patient.patient_diagnosis}), MRS type {patient.mrs_type}) will be in ward for {sampled_ward_act_time:.1f} minutes ({(sampled_ward_act_time / 60 / 24):.1f} days).",
+                            identifier=patient.id,
+                            config=g.trace_config,
+                        )
                         yield self.env.timeout(sampled_ward_act_time)
                         self.ward_occupancy.remove(patient)
 
@@ -1073,6 +1253,13 @@ class Model:
                             sampled_ward_act_time * g.thrombolysis_los_save
                         )
                         patient.mrs_discharge = patient.mrs_type - random.randint(0, 2)
+                        trace(
+                            time=self.env.now,
+                            debug=g.show_trace,
+                            msg=f"💉 Patient {patient.id} (diagnosis {patient.diagnosis} ({patient.patient_diagnosis}), MRS type {patient.mrs_type}) THROMBOLYSED. Will be in ward for {sampled_ward_act_time_thrombolysis:.1f} minutes ({(sampled_ward_act_time_thrombolysis / 24 / 60):.1f} days).",
+                            identifier=patient.id,
+                            config=g.trace_config,
+                        )
                         yield self.env.timeout(sampled_ward_act_time_thrombolysis)
                         if (
                             self.env.now > g.warm_up_period
@@ -1091,6 +1278,13 @@ class Model:
                         self.ward_occupancy.remove(patient)
                     else:
                         patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                        trace(
+                            time=self.env.now,
+                            debug=g.show_trace,
+                            msg=f"Patient {patient.id} (diagnosis {patient.diagnosis} ({patient.patient_diagnosis}), MRS type {patient.mrs_type}) will be in ward for {sampled_ward_act_time:.1f} minutes ({(sampled_ward_act_time / 60 / 24):.1f} days).",
+                            identifier=patient.id,
+                            config=g.trace_config,
+                        )
                         yield self.env.timeout(sampled_ward_act_time)
                         self.ward_occupancy.remove(patient)
 
@@ -1103,6 +1297,13 @@ class Model:
                             sampled_ward_act_time * g.thrombolysis_los_save
                         )
                         patient.mrs_discharge = patient.mrs_type - random.randint(0, 2)
+                        trace(
+                            time=self.env.now,
+                            debug=g.show_trace,
+                            msg=f"💉 Patient {patient.id} (diagnosis {patient.diagnosis} ({patient.patient_diagnosis}), MRS type {patient.mrs_type}) THROMBOLYSED. Will be in ward for {sampled_ward_act_time_thrombolysis:.1f} minutes ({(sampled_ward_act_time_thrombolysis / 24 / 60):.1f} days).",
+                            identifier=patient.id,
+                            config=g.trace_config,
+                        )
                         yield self.env.timeout(sampled_ward_act_time_thrombolysis)
                         if (
                             self.env.now > g.warm_up_period
@@ -1121,6 +1322,13 @@ class Model:
                         self.ward_occupancy.remove(patient)
                     else:
                         patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                        trace(
+                            time=self.env.now,
+                            debug=g.show_trace,
+                            msg=f"Patient {patient.id} (diagnosis {patient.diagnosis} ({patient.patient_diagnosis}), MRS type {patient.mrs_type}) will be in ward for {sampled_ward_act_time:.1f} minutes ({(sampled_ward_act_time / 60 / 24):.1f} days).",
+                            identifier=patient.id,
+                            config=g.trace_config,
+                        )
                         yield self.env.timeout(sampled_ward_act_time)
                         self.ward_occupancy.remove(patient)
 
@@ -1134,6 +1342,13 @@ class Model:
                     sampled_ward_act_time = random.expovariate(
                         1.0 / g.mean_n_tia_ward_time
                     )
+                    trace(
+                        time=self.env.now,
+                        debug=g.show_trace,
+                        msg=f"Patient {patient.id} (diagnosis {patient.diagnosis} ({patient.patient_diagnosis}), MRS type {patient.mrs_type}) will be in ward for {sampled_ward_act_time:.1f} minutes ({(sampled_ward_act_time / 60 / 24):.1f} days).",
+                        identifier=patient.id,
+                        config=g.trace_config,
+                    )
                     yield self.env.timeout(sampled_ward_act_time)
                     self.ward_occupancy.remove(patient)
 
@@ -1145,6 +1360,15 @@ class Model:
                     sampled_ward_act_time = random.expovariate(
                         1.0 / g.mean_n_non_stroke_ward_time
                     )
+
+                    trace(
+                        time=self.env.now,
+                        debug=g.show_trace,
+                        msg=f"Patient {patient.id} (diagnosis {patient.diagnosis} ({patient.patient_diagnosis}), MRS type {patient.mrs_type}) will be in ward for {sampled_ward_act_time:.1f} minutes ({(sampled_ward_act_time / 60 / 24):.1f} days).",
+                        identifier=patient.id,
+                        config=g.trace_config,
+                    )
+
                     yield self.env.timeout(sampled_ward_act_time)
                     self.ward_occupancy.remove(patient)
 
@@ -1159,6 +1383,14 @@ class Model:
                 )
 
             # MARK: Discharged from main ward
+            trace(
+                time=self.env.now,
+                debug=g.show_trace,
+                msg=f"🚗 Patient {patient.id} discharged from main ward after {final_ward_los:.1f} minutes ({(final_ward_los / 24 / 60):.1f} days). Occupancy after discharge: {len(self.ward_occupancy)} of {g.number_of_ward_beds} ward beds)",
+                identifier=patient.id,
+                config=g.trace_config,
+            )
+
     # This method calculates results over a single run.
 
     def calculate_run_results(self):
