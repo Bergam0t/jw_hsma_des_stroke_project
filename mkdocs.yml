@@ -1,0 +1,21 @@
+site_name: My Docs
+site_url: https://sammirosser.com/jw_hsma_des_stroke_project
+
+theme:
+  name: material
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: numpy
+
+nav:
+  - Home: index.md
+  - Model Classes:
+    - g: g.md
+    - Patient: patient.md
+    - Model: model.md
+    - Trial: trial.md
