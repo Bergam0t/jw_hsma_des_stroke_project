@@ -6,3 +6,7 @@ stlitepack==0.4.5
 numpy==1.26.4
 matplotlib==3.10.8
 sim-tools==1.0.0
+streamlit-mermaid==0.3.0
+mkdocs-material==9.7.0
+mkdocstrings[python]
+streamlit-extras==0.7.8
