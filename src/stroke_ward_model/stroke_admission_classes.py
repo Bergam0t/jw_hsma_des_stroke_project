@@ -2199,7 +2199,7 @@ class Trial:
         # Code to store the configuration that was used for this trial.
         self.trial_info = (
             f"Trial {g.trials_run_counter}, SDEC Therapy = {g.therapy_sdec},"
-            f" SDEC Open % = {sdec_value}, CTP Open % = {ctp_value}"
+            f" SDEC Open % = {g.sdec_value}, CTP Open % = {g.ctp_value}"
         )
 
         print("---------------------------------------------------")
