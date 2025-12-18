@@ -648,6 +648,12 @@ class Model:
             patient.patient_diagnosis = 3
         elif patient.diagnosis > self.non_stroke_range:
             patient.patient_diagnosis = 4
+        # TODO: SR have added this else clause but need to confirm this is correct
+        # TODO: SR patients were occasionally not getting allocated a diagnosis and
+        # TODO: SR this would then cause issues with generating LOS etc
+        else:
+            patient.patient_diagnosis = 4
+
         trace(
             time=self.env.now,
             debug=g.show_trace,
