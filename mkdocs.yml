@@ -1,8 +1,17 @@
 site_name: My Docs
 site_url: https://sammirosser.com/jw_hsma_des_stroke_project
+repo_url: https://github.com/Bergam0t/jw_hsma_des_stroke_project
 
 theme:
   name: material
+  features:
+    - navigation.expand
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.select
+  palette:
+    primary: blue
 
 plugins:
   - search
@@ -12,6 +21,18 @@ plugins:
           options:
             docstring_style: numpy
 
+markdown_extensions:
+  - attr_list
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - admonition
+  - pymdownx.details
+
 nav:
   - Home: index.md
   - Model Classes:
@@ -19,3 +40,4 @@ nav:
     - Patient: patient.md
     - Model: model.md
     - Trial: trial.md
+  - Changelog: CHANGELOG.md

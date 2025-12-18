@@ -1,17 +1,17 @@
-# Welcome to MkDocs
+# Discrete Event Simulation of a Stroke Unit
 
-For full documentation visit [mkdocs.org](https://www.mkdocs.org).
+# What impact do specialised stroke same day emergency care (SDEC) units and CT perfusion scanning have on stroke patient flow?
 
-## Commands
+Welcome to the documentation for this discrete event simulation.
 
-* `mkdocs new [dir-name]` - Create a new project.
-* `mkdocs serve` - Start the live-reloading docs server.
-* `mkdocs build` - Build the documentation site.
-* `mkdocs -h` - Print help message and exit.
+This model is designed to help answer questions about the impact of CT perfusion scanner availability and the use of a specialised stroke SDEC on stroke ward capacity, the suitable number of beds, and potential cost-savings from increased use of these approaches.
 
-## Project layout
+![](assets/app_preview.png)
 
-    mkdocs.yml    # The configuration file.
-    docs/
-        index.md  # The documentation homepage.
-        ...       # Other markdown pages, images and other files.
+## Where can I find out more?
+
+This documentation contains technical details of the modelling code.
+
+For a higher-level overview, you can find details in the Streamlit app.
+
+Details of how to run the Streamlit app locally can be found [in the repository readme](https://https://github.com/Bergam0t/jw_hsma_des_stroke_project).
