@@ -6,6 +6,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sim_tools.trace import trace
 from stroke_ward_model.utils import minutes_to_ampm
+from vidigi.resources import VidigiPriorityStore as PriorityResource
+from vidigi.resources import VidigiStore as Resource
 
 
 # MARK: g
@@ -417,13 +419,21 @@ class Model:
 
         # Create a SimPy resources to represent stroke nurses, ctp scanners,
         # sdec beds, and ward beds. Set in class g
-        self.nurse = simpy.Resource(self.env, capacity=g.number_of_nurses)
 
-        self.ctp_scanner = simpy.PriorityResource(self.env, capacity=g.number_of_ctp)
+        # SR: I have replaced these with the Vidigi equivalents, which are functionally
+        # identical apart from also allowing the resource ID to be tracked, which is
+        # useful for animation
+        # self.nurse = simpy.Resource(self.env, capacity=g.number_of_nurses)
+        self.nurse = Resource(self.env, num_resources=g.number_of_nurses)
 
-        self.sdec_bed = simpy.PriorityResource(self.env, capacity=g.sdec_beds)
+        # self.ctp_scanner = simpy.PriorityResource(self.env, capacity=g.number_of_ctp)
+        self.ctp_scanner = PriorityResource(self.env, num_resources=g.number_of_ctp)
 
-        self.ward_bed = simpy.Resource(self.env, capacity=g.number_of_ward_beds)
+        # self.sdec_bed = simpy.PriorityResource(self.env, capacity=g.sdec_beds)
+        self.sdec_bed = PriorityResource(self.env, num_resources=g.sdec_beds)
+
+        # self.ward_bed = simpy.Resource(self.env, capacity=g.number_of_ward_beds)
+        self.ward_bed = Resource(self.env, num_resources=g.number_of_ward_beds)
 
         # Store the passed in run number
         self.run_number = run_number
