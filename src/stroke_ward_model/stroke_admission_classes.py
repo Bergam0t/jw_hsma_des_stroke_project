@@ -234,7 +234,7 @@ class g:
     patient_arrival_gen_2 = False
 
     show_trace = True
-    tracked_cases = list(range(1, 1000))
+    tracked_cases = list(range(1, 50))
     trace_config = {"tracked": tracked_cases}
 
 
@@ -935,11 +935,14 @@ class Model:
 
         # Record the time the patient started queuing for a nurse
         start_q_nurse = self.env.now
+        patient.nurse_q_start_time = self.env.now
 
         self.q_for_assessment.append(patient)
 
-        # Add the arrival time to the main DF, this is mainly to test if the
-        # patinet arrival times mirror the real world data
+        # Add the arrival time to the main DF
+        # This is partly to test if the
+        # patient arrival times mirror the real world data
+        # SR: this is also now used for animation generation
 
         patient.clock_start = self.env.now
 
@@ -960,7 +963,11 @@ class Model:
         with self.nurse.request() as req:
             # Freeze the function until the request for a nurse can be met.
             # The patient is currently queuing.
-            yield req
+            nurse_attending = yield req
+            # SR - have added recording of the resource ID that's possible as it's now
+            # using vidigi resources
+            patient.nurse_attending_id = nurse_attending.id_attribute
+            patient.nurse_triage_start_time = self.env.now
 
             trace(
                 time=self.env.now,
