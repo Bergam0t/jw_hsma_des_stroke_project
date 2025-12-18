@@ -1,0 +1,18 @@
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons|Material+Icons+Outlined|Material+Symbols+Outlined');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined">');
+
+.stAppHeader {
+    background-color: #005EB8;
+}
+
+.stAppHeader button,
+.stAppHeader span,
+.stAppHeader a,
+.stAppHeader a:visited,
+.stAppHeader a:hover {
+    color: white !important;
+}
+
+.stLogo {
+    height: 3rem !important;
+        }
