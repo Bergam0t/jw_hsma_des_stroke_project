@@ -20,10 +20,6 @@ class g:
     and state flags modified during execution. All attributes are class
     variables and are intended to be accessed without instantiation.
 
-    GENAI declaration (SR): this docstring has been generated with the aid of
-    ChatGPT 5.1.
-    All generated content has been thoroughly reviewed.
-
     Attributes
     ----------
     sim_duration : int
@@ -33,12 +29,14 @@ class g:
     warm_up_period : float
         Number of minutes considered warm-up (not included in statistics),
         defined as one-fifth of the total simulation time.
-    # TODO: I'm not sure this interpretation is entirely correct,
-    # seeing how it is then used within the patient generator
     patient_inter_day : int
         Interarrival time (minutes) for daytime patient generation.
+        NOTE that this is not used in entirely the way that you might expect.
+        This may be changed in future.
     patient_inter_night : int
         Interarrival time (minutes) for nighttime patient generation.
+        NOTE that this is not used in entirely the way that you might expect.
+        This may be changed in future.
     number_of_nurses : int
         Number of nurses available in the system.
     mean_n_consult_time : int
@@ -53,42 +51,59 @@ class g:
         Mean SDEC stay duration in minutes.
     number_of_ward_beds : int
         Number of inpatient ward beds.
-
-    mean_n_i_ward_time_mrs_0 to mean_n_i_ward_time_mrs_5 : int
-        Inpatient LOS (minutes) for ischemic stroke by modified Rankin Scale (0–5).
-    mean_n_ich_ward_time_mrs_0 to mean_n_ich_ward_time_mrs_5 : int
-        Inpatient LOS (minutes) for intracerebral hemorrhage by MRS score.
+    mean_n_i_ward_time_mrs_0 : int
+        Inpatient LOS (minutes) for ischemic stroke by modified Rankin Scale (0).
+    mean_n_i_ward_time_mrs_1 : int
+        Inpatient LOS (minutes) for ischemic stroke by modified Rankin Scale (1).
+    mean_n_i_ward_time_mrs_2 : int
+        Inpatient LOS (minutes) for ischemic stroke by modified Rankin Scale (2).
+    mean_n_i_ward_time_mrs_3 : int
+        Inpatient LOS (minutes) for ischemic stroke by modified Rankin Scale (3).
+    mean_n_i_ward_time_mrs_4 : int
+        Inpatient LOS (minutes) for ischemic stroke by modified Rankin Scale (4).
+    mean_n_i_ward_time_mrs_5 : int
+        Inpatient LOS (minutes) for ischemic stroke by modified Rankin Scale (5).
+    mean_n_ich_ward_time_mrs_0 : int
+        Inpatient LOS (minutes) for intracerebral hemorrhage by MRS score (0).
+    mean_n_ich_ward_time_mrs_1 : int
+        Inpatient LOS (minutes) for intracerebral hemorrhage by MRS score (1).
+    mean_n_ich_ward_time_mrs_2 : int
+        Inpatient LOS (minutes) for intracerebral hemorrhage by MRS score (2).
+    mean_n_ich_ward_time_mrs_3 : int
+        Inpatient LOS (minutes) for intracerebral hemorrhage by MRS score (3).
+    mean_n_ich_ward_time_mrs_4 : int
+        Inpatient LOS (minutes) for intracerebral hemorrhage by MRS score (4).
+    mean_n_ich_ward_time_mrs_5 : int
+        Inpatient LOS (minutes) for intracerebral hemorrhage by MRS score (5).
     mean_n_non_stroke_ward_time : int
         LOS (minutes) for non-stroke patients (TODO: CHECK INTERPRETATION).
     mean_n_tia_ward_time : int
         LOS (minutes) for TIA patients.
     thrombolysis_los_save : float
         Proportional reduction in LOS for thrombolysed patients.
+        This is used as a multiplier with the sampled length of stay.
+        For example, if a patient has a LOS of 10 days, and the value of `thrombolysis_los_save`
+        was 0.75, the calculation would be 10 * 0.75, resulting in a LOS of 7.5 days.
     mean_mrs : int
         Default/mean modified Rankin Scale score used in the model.
-
-    TODO: CHECK INTERPRETATION
     ich : int
-        Percentage likelihood of intracerebral hemorrhage diagnosis.
+        Percentage likelihood of intracerebral hemorrhage diagnosis (TODO: CHECK INTERPRETATION).
     i : int
         Percentage likelihood of ischemic stroke diagnosis.
     tia : int
         Percentage likelihood of TIA diagnosis.
     stroke_mimic : int
         Percentage likelihood of stroke mimic diagnosis.
-
     tia_admission : int
         Percentage chance that a TIA requires admission.
     stroke_mimic_admission : int
         Percentage chance that a stroke mimic requires admission.
-
     sdec_dr_cost_min : float
         Cost per minute for SDEC doctor time.
     inpatient_bed_cost : float
         Cost of a standard inpatient bed stay.
     inpatient_bed_cost_thrombolysis : float
         Cost of an inpatient stay following thrombolysis.
-
     sdec_unav_time : int
         Operational unavailability duration of SDEC
     sdec_unav_freq : int
@@ -97,7 +112,6 @@ class g:
         Operational unavailability duration of CT perfusion scanner
     ctp_unav_freq : int
         How often CT perfusion unavailability duration occurs
-
     sdec_unav : bool
         Indicates whether SDEC is unavailable.
     ctp_unav : bool
@@ -114,6 +128,12 @@ class g:
         Flag used by the simulation to control one patient arrival stream.
     patient_arrival_gen_2 : bool
         Flag used by the simulation to control a second patient arrival stream.
+
+    Notes
+    -----
+    GENAI declaration (SR): this docstring has been generated with the aid of
+    ChatGPT 5.1.
+    All generated content has been thoroughly reviewed.
     """
 
     # 525600 (Year of Minutes)
