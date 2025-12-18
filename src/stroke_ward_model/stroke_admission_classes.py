@@ -180,6 +180,15 @@ class g:
     sdec_value = 0
     ctp_value = 0
 
+    sdec_opening_hour = 0
+    ctp_opening_hour = 0
+
+    in_hours_start = 8
+    ooh_start = 20
+
+    in_hours_start_mins = in_hours_start * 60
+    ooh_start_mins = ooh_start * 60
+
     # These values are changed by the model itself
 
     sdec_unav = False
