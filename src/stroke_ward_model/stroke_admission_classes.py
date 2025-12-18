@@ -237,10 +237,6 @@ class Patient:
     category, admission likelihood) are randomly generated on creation
     using parameters defined in the global configuration class `g`.
 
-    GENAI declaration (SR): this docstring has been generated with the aid
-    of ChatGPT 5.1.
-    All generated content has been thoroughly reviewed.
-
     Parameters
     ----------
     p_id : int or str
@@ -287,7 +283,13 @@ class Patient:
     thrombectomy : bool
         Whether the patient receives thrombectomy.
     admission_avoidance : bool
-        Whether the patient is suitable for or receives admission avoidance.
+        Whether the patient avoids an admission by being seen in SDEC instead.
+
+    Notes
+    -----
+    GENAI declaration (SR): this docstring has been generated with the aid
+    of ChatGPT 5.1.
+    All generated content has been thoroughly reviewed.
     """
 
     def __init__(self, p_id):
