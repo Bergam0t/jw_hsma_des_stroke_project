@@ -292,19 +292,19 @@ class Patient:
 
     def __init__(self, p_id):
         self.id = p_id
-        self.q_time_nurse = 0
-        self.q_time_ward = 0
+        self.q_time_nurse = np.NaN  # SR NOTE - changed this to NaN by default
+        self.q_time_ward = np.NaN  # SR NOTE - changed this to NaN by default
         # 0 = known onset, 1 = unknown onset (in ctp range), 2 = unknown (out of
         # ctp range)
         self.onset_type = random.randint(0, 2)
         # Max MRS is set to 5
         self.mrs_type = min(round(random.expovariate(1.0 / g.mean_mrs)), 5)
-        self.mrs_discharge = 0
+        self.mrs_discharge = np.NaN  # SR NOTE - changed this to NaN by default
         # <=5 is ICH, <=55 is I, <= 70 is TIA, <=85 is Stroke Mimic, >85 is non\
         # stroke, this set in g class
         self.diagnosis = random.randint(0, 100)
         # 0 = ICH, 1 = I, 2 = TIA, 3 = Stroke Mimic, 4 = non stroke
-        self.patient_diagnosis = 0
+        self.patient_diagnosis = np.NaN  # SR NOTE - changed this to NaN by default
         self.priority = 1
         self.non_admission = random.randint(0, 100)
         self.advanced_ct_pathway = False
