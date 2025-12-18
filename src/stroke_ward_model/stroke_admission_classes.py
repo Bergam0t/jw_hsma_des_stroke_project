@@ -1634,13 +1634,26 @@ class Model:
             else:
                 return fig
 
-    # MARK: run model
+    def track_days(self):
+        # Print a debugging message every day
+        while self.env.now <= g.sim_duration:
+            # TODO: this doesn't always reliably appear depending on number of tracked cases
+            trace(
+                msg=f"========= DAY {(self.env.now // 1440):.0f} ===============",
+                time=self.env.now,
+                debug=g.show_trace,
+                identifier=max(g.tracked_cases),
+                config=g.trace_config,
+            )
+            yield self.env.timeout(1440)
+
     # The run method starts up the DES entity generators, runs the simulation,
     # and in turns calls anything we need to generate results for the run
 
     def run(self):
         # starts up the generators in the model, of which there are three.
 
+        self.env.process(self.track_days())
         self.env.process(self.generator_patient_arrivals())
         self.env.process(self.generator_patient_arrivals_ooh())
         self.env.process(self.obstruct_ctp())
