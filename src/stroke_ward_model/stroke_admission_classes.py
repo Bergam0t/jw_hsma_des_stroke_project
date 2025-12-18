@@ -33,10 +33,14 @@ class g:
         Interarrival time (minutes) for daytime patient generation.
         NOTE that this is not used in entirely the way that you might expect.
         This may be changed in future.
+        NOTE that this has now been changed to be used directly as an average IAT, but this
+        may change in future. This supersedes the previous note.
     patient_inter_night : int
         Interarrival time (minutes) for nighttime patient generation.
         NOTE that this is not used in entirely the way that you might expect.
         This may be changed in future.
+        NOTE that this has now been changed to be used directly as an average IAT, but this
+        may change in future. This supersedes the previous note.
     number_of_nurses : int
         Number of nurses available in the system.
     mean_n_consult_time : int
@@ -140,8 +144,15 @@ class g:
     sim_duration = 525600
     number_of_runs = 10
     warm_up_period = sim_duration / 5
-    patient_inter_day = 5
-    patient_inter_night = 5
+
+    # TODO: SR query: confirm with John in case this was done in this way for a particular
+    # reason, but I've swapped it to a more intuitive use and something that will allow
+    # for setting via the app interface too
+    # patient_inter_day = 5
+    # patient_inter_night = 5
+    patient_inter_day = 200.0
+    patient_inter_night = 666.666666666667
+
     number_of_nurses = 2
     number_of_ctp = 1
     sdec_beds = 5
@@ -581,7 +592,11 @@ class Model:
                 # TODO: SR query: explore whether this is the most intuitive/easily managed way to
                 # handle interarrival rate. I think this means arrivals average
                 # every 200 minutes.
-                sampled_inter = random.expovariate(0.025 / g.patient_inter_day)
+                # TODO: SR query: confirm with John in case this was done in this way for a particular
+                # reason, but I've swapped it to a more intuitive use and something that will allow
+                # for setting via the app interface too
+                # sampled_inter = random.expovariate(0.025 / 5)
+                sampled_inter = random.expovariate(1.0 / g.patient_inter_day)
                 trace(
                     time=self.env.now,
                     debug=g.show_trace,
@@ -678,7 +693,11 @@ class Model:
                 # TODO: SR query: explore whether this is the most intuitive/easily managed way to
                 # handle interarrival rate. I think this means arrivals average
                 # every 666.6 minutes.
-                sampled_inter = random.expovariate(0.0075 / g.patient_inter_night)
+                # TODO: SR query: confirm with John in case this was done in this way for a particular
+                # reason, but I've swapped it to a more intuitive use and something that will allow
+                # for setting via the app interface too
+                # sampled_inter = random.expovariate(0.0075 / 5)
+                sampled_inter = random.expovariate(1.0 / g.patient_inter_night)
                 trace(
                     time=self.env.now,
                     debug=g.show_trace,

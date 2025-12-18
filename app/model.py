@@ -126,11 +126,29 @@ with st.sidebar:
 
     g.in_hours_start = in_hours_demand_start.hour
 
+    in_hours_mean_iat = st.number_input(
+        "What is the average time (in minutes) between arrivals at the unit in-hours?",
+        min_value=1.0,
+        max_value=5000.0,
+        value=200.0,
+    )
+
+    g.patient_inter_day = in_hours_mean_iat
+
     out_of_hours_demand_start = st.time_input(
         "What time does your out-of-hours demand start?", "20:00", step=60
     )
 
     g.ooh_start = out_of_hours_demand_start.hour
+
+    out_of_hours_mean_iat = st.number_input(
+        "What is the average time (in minutes) between arrivals at the unit out-of-hours?",
+        min_value=1.0,
+        max_value=5000.0,
+        value=666.67,
+    )
+
+    g.patient_inter_night = out_of_hours_mean_iat
 
     st.divider()
 
