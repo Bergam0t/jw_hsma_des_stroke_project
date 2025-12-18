@@ -905,19 +905,25 @@ class Model:
 
         if patient.diagnosis <= self.ich_range:
             patient.patient_diagnosis = 0
+            patient.patient_diagnosis_type = "ICH"
         elif patient.diagnosis <= self.i_range:
             patient.patient_diagnosis = 1
+            patient.patient_diagnosis_type = "I"
         elif patient.diagnosis <= self.tia_range:
             patient.patient_diagnosis = 2
+            patient.patient_diagnosis_type = "TIA"
         elif patient.diagnosis <= self.stroke_mimic_range:
             patient.patient_diagnosis = 3
+            patient.patient_diagnosis_type = "Stroke Mimic"
         elif patient.diagnosis > self.non_stroke_range:
             patient.patient_diagnosis = 4
+            patient.patient_diagnosis_type = "Non Stroke"
         # TODO: SR have added this else clause but need to confirm this is correct
         # TODO: SR patients were occasionally not getting allocated a diagnosis and
         # TODO: SR this would then cause issues with generating LOS etc
         else:
             patient.patient_diagnosis = 4
+            patient.patient_diagnosis_type = "Non Stroke"
 
         trace(
             time=self.env.now,
@@ -1251,24 +1257,12 @@ class Model:
 
         # The below code records the patients diagnosis attribute, this is added
         # to the DF to check the diagnosis code is working correctly.
-
-        if patient.patient_diagnosis == 0 and self.env.now > g.warm_up_period:
-            self.results_df.at[patient.id, "Diagnosis Type"] = "ICH"
-            patient.patient_diagnosis_type = "ICH"
-        elif patient.patient_diagnosis == 1 and self.env.now > g.warm_up_period:
-            self.results_df.at[patient.id, "Diagnosis Type"] = "I"
-            patient.patient_diagnosis_type = "I"
-        elif patient.patient_diagnosis == 2 and self.env.now > g.warm_up_period:
-            self.results_df.at[patient.id, "Diagnosis Type"] = "TIA"
-            patient.patient_diagnosis_type = "TIA"
-        elif patient.patient_diagnosis == 3 and self.env.now > g.warm_up_period:
-            self.results_df.at[patient.id, "Diagnosis Type"] = "Stroke Mimic"
-            patient.patient_diagnosis_type = "Stroke Mimic"
-        elif patient.patient_diagnosis == 4 and self.env.now > g.warm_up_period:
-            self.results_df.at[patient.id, "Diagnosis Type"] = "Non Stroke"
-            patient.patient_diagnosis_type = "Non Stroke"
-
+        # SR - refactored recording of diagnosis type in results df as that's now recorded
+        # as a patient attribute earlier
         if self.env.now > g.warm_up_period:
+            self.results_df.at[patient.id, "Diagnosis Type"] = (
+                patient.patient_diagnosis_type
+            )
             self.results_df.at[patient.id, "Onset Type"] = patient.onset_type
 
         # This code add information regarding the patients admission avoidance.
