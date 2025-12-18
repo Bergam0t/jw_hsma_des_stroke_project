@@ -2084,6 +2084,41 @@ class Model:
 
 # MARK: Trial class
 class Trial:
+    """
+    Orchestrator for running multiple simulation iterations (runs) and aggregating results.
+
+    The Trial class manages the execution of multiple `Model` instances as defined
+    in the global configuration. It collects performance metrics, financial data,
+    and patient-level logs from each individual run into centralized DataFrames
+    for cross-run analysis.
+
+    Attributes
+    ----------
+    df_trial_results : pd.DataFrame
+        A summary DataFrame where each row represents a single simulation run.
+        Tracks metrics such as mean queue times, occupancy, and financial savings.
+    graph_objects : list
+        Storage for visualization objects generated during each simulation run.
+    model_objects : list
+        A collection of `Model` instances created during the trial, allowing
+        for post-hoc inspection of specific run states.
+    trial_patient_dataframes : list
+        A list of DataFrames, each containing detailed attribute data for every
+        patient in a specific run.
+    trial_patient_df : pd.DataFrame
+        The master DataFrame created by concatenating all patient-level data
+        across all runs in the trial.
+    trial_info : str
+        A descriptive string containing the configuration settings used for
+        the current trial (e.g., SDEC therapy status and resource availability).
+
+    Notes
+    -----
+    GENAI declaration (SR): this docstring has been generated with the aid
+    of Google Gemini Flash.
+    All generated content has been thoroughly reviewed.
+    """
+
     # The constructor sets up a pandas dataframe that will store the key
     # results from each run with run number as the index.
 
@@ -2114,6 +2149,37 @@ class Trial:
     # Method to run a trial
 
     def run_trial(self):
+        """
+        Executes the batch of simulation runs and aggregates the resulting data.
+
+        This method performs the following steps:
+
+        1. Loops through the number of runs specified in `g.number_of_runs`.
+
+        2. Instantiates and executes a `Model` for each run.
+
+        3. Collects summary metrics (e.g., queue times, savings) into `df_trial_results`.
+
+        4. Flattens patient-level data into a single master DataFrame.
+
+        5. Calculates trial-level means and updates the global `g` class attributes.
+
+        6. Optionally exports results to a CSV file if `g.write_to_csv` is True.
+
+        This method dynamically updates the global configuration class `g` by
+        calculating the mean of results across all runs and storing them in
+        dictionaries keyed by the trial counter.
+
+        See Also
+        --------
+        Model.run : The method called to execute an individual simulation iteration.
+
+        Notes
+        -----
+        GENAI declaration (SR): this docstring has been generated with the aid
+        of Google Gemini Flash.
+        All generated content has been thoroughly reviewed.
+        """
         # Run the simulation for the number of runs specified in g class.
         # For each run, we create a new instance of the Model class and call its
         # run method, which sets everything else in motion.  Once the run has
