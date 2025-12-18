@@ -329,6 +329,72 @@ class Patient:
 # MARK: Model
 # Class representing the model of the stroke assessment / treatment process
 class Model:
+    """
+    A SimPy simulation model representing a stroke patient pathway.
+
+    This class coordinates the simulation environment, manages clinical resources
+    (nurses, scanners, and beds), and tracks performance metrics throughout
+    the duration of a simulation run.
+
+    Parameters
+    ----------
+    run_number : int
+        The unique identifier for the specific simulation run.
+
+    Attributes
+    ----------
+    env : simpy.core.Environment
+        The SimPy environment in which the simulation is executed.
+    patient_counter : int
+        A running count of patients who have entered the system, used as a unique ID.
+        This is shared across in-hours and out-of-hours arrivals.
+    nurse : simpy.resources.resource.Resource
+        A SimPy resource representing stroke nurses available for assessment.
+    ctp_scanner : simpy.resources.resource.PriorityResource
+        A priority resource representing CTP scanners.
+    sdec_bed : simpy.resources.resource.PriorityResource
+        A priority resource representing Same Day Emergency Care (SDEC) beds.
+    ward_bed : simpy.resources.resource.Resource
+        A SimPy resource representing standard ward beds.
+    run_number : int
+        The identifier for the current simulation iteration.
+    results_df : pd.DataFrame
+        A central data repository for patient-level results, including queue times,
+        lengths of stay, and diagnostic statuses.
+    sdec_freeze_counter : int
+        Counter tracking the frequency of SDEC capacity freezes.
+    mean_q_time_nurse : float
+        The calculated average time patients spent queuing for a nurse.
+    mean_q_time_ward : float
+        The calculated average time patients spent queuing for a ward bed.
+    mean_los_ward : float
+        The average length of stay for patients admitted to the ward.
+    thrombolysis_savings : float
+        Aggregated metric representing the savings or benefits derived from thrombolysis.
+    q_for_assessment : list
+        A list tracking patients currently waiting in the assessment queue.
+    nurse_q_graph_df : pd.DataFrame
+        Time-series data for monitoring nurse queue lengths over time.
+    sdec_occupancy : list
+        Historical record of SDEC bed utilization.
+    admission_avoidance : list
+        Historical record of patients who avoided inpatient admission.
+    ward_occupancy : list
+        Historical record of ward bed utilization.
+    non_admissions : list
+        Record of patients classified as non-admissions.
+    occupancy_graph_df : pd.DataFrame
+        Time-series data for monitoring ward occupancy levels.
+    patient_objects : list
+        A collection of all `Patient` class instances created during the simulation.
+
+    Notes
+    -----
+    GENAI declaration (SR): this docstring has been generated with the aid
+    of Google Gemini Flash.
+    All generated content has been thoroughly reviewed.
+    """
+
     # Constructor to set up the model for a run. We pass in a run number when
     # we create a new model.
     def __init__(self, run_number):
@@ -439,6 +505,45 @@ class Model:
     # MARK: M: in-hours arrivals
     # A generator function for the patient arrivals in hours.
     def generator_patient_arrivals(self):
+        """
+        A SimPy process generator that handles "in-hours" patient arrivals.
+
+        This function runs as a continuous loop. It checks if the current
+        simulation time is within daytime operating hours (0-960 minutes
+        relative to the start of a 1440-minute day).
+
+        If in-hours, it:
+
+        1. Updates global arrival flags.
+
+        2. Instantiates a new Patient object.
+
+        3. Records trace information.
+
+        4. Triggers the `stroke_assessment` process for the patient.
+
+        5. Samples an inter-arrival time and yields a timeout.
+
+        If out-of-hours, it yields a small timeout before checking again.
+
+        Arrival rates are determined by `random.expovariate` using the
+        `g.patient_inter_day` parameter. NOTE that this does not use the
+        `g.patient_inter_day` parameter directly, and instead uses it alongside
+        a rate modifier - careful inspection of the code to understand the impacts
+        of changing `g.patient_inter_day` is recommended, and this may be adjusted
+        in a future version of the model.
+
+        Patients generated here have their `arrived_ooh` attribute set to False.
+
+        This process triggers the `stroke_assessment` process for every
+        newly created patient.
+
+        Notes
+        -----
+        GENAI declaration (SR): this docstring has been generated with the aid
+        of Google Gemini Flash.
+        All generated content has been thoroughly reviewed.
+        """
         while True:
             # if 0 <= self.env.now % 1440 < 960
             time_of_day = self.env.now % 1440
@@ -495,6 +600,47 @@ class Model:
     # MARK: M: OOH arrivals
     # A generator function for the patient arrivals out of hours.
     def generator_patient_arrivals_ooh(self):
+        """
+        A SimPy process generator that handles out-of-hours (OOH) patient arrivals.
+
+        This function runs as a continuous loop, monitoring the simulation time
+        to identify the "night" window (960 to 1440 minutes in a 24-hour cycle).
+        When active, it instantiates patients and schedules their journey
+        through the clinical pathway.
+
+        If out-of-hours, it:
+
+        1. Updates global arrival flags.
+
+        2. Instantiates a new Patient object.
+
+        3. Records trace information.
+
+        4. Triggers the `stroke_assessment` process for the patient.
+
+        5. Samples an inter-arrival time and yields a timeout.
+
+        If in-hours, it yields a small timeout before checking again.
+
+        Arrival rates are determined by `random.expovariate` using the
+        `g.patient_inter_night` parameter. NOTE that this does not use the
+        `g.patient_inter_night` parameter directly, and instead uses it alongside
+        a rate modifier - careful inspection of the code to understand the impacts
+        of changing `g.patient_inter_night` is recommended, and this may be adjusted
+        in a future version of the model.
+
+        Patients generated here have their `arrived_ooh` attribute set to True.
+
+        This process triggers the `stroke_assessment` process for every
+        newly created patient.
+
+        Notes
+        -----
+        GENAI declaration (SR): this docstring has been generated with the aid
+        of Google Gemini Flash.
+        All generated content has been thoroughly reviewed.
+
+        """
         while True:
             # if 960 <= self.env.now % 1440 < 1440:
             time_of_day = self.env.now % 1440
@@ -550,6 +696,37 @@ class Model:
 
     # MARK: M: Obstruct CTP
     def obstruct_ctp(self):
+        """
+        Simulates periodic CTP scanner unavailability (off time).
+
+        This process acts as a "blocker" by requesting the CTP scanner resource
+        with a priority of -1. Since patients typically have a priority of 1,
+        this process effectively preempts the queue, preventing patients from
+        using the scanners during this period.
+
+        The scanner will not stop a scan that is already in progress;
+        it waits for the current user to finish before taking the
+        resource offline.
+
+        Frequencies and durations are governed by `g.ctp_unav_freq`
+        and `g.ctp_unav_time`.
+
+        Yields
+        ------
+        simpy.events.Timeout
+            Initial offset for opening hours and subsequent intervals
+            between downtime events.
+        simpy.events.ResourceRequest
+            A high-priority request to seize the CTP scanner and take
+            it "offline."
+
+        Notes
+        -----
+        GENAI declaration (SR): this docstring has been generated with the aid
+        of Google Gemini Flash.
+        All generated content has been thoroughly reviewed.
+
+        """
         # TODO SR: Confirm this is ok with John
         # SR: Add initial offset
         # SR: Patient generators have also been updated
@@ -588,6 +765,26 @@ class Model:
 
     # MARK: M: Obstruct SDEC
     def obstruct_sdec(self):
+        """
+        Simulates the scheduled closure or unavailability of the SDEC unit.
+
+        Similar to the CTP obstruction, this process seizes an SDEC bed
+        at a high priority (-1) for a defined duration. This models the
+        real-world scenario where the SDEC unit closes at night or
+        during specific hours, forcing patients to bypass this pathway.
+
+        If a closure occurs after the simulation warm-up period, the
+        `sdec_freeze_counter` is incremented.
+
+        Patients arriving while the SDEC is "obstructed" will be
+        unable to access SDEC resources.
+
+        Notes
+        -----
+        GENAI declaration (SR): this docstring has been generated with the aid
+        of Google Gemini Flash.
+        All generated content has been thoroughly reviewed.
+        """
         # TODO SR: Confirm this is ok with John
         #  SR: Add initial offset
         # SR: Patient generators have also been updated
@@ -632,6 +829,15 @@ class Model:
     # The patient object is passed in to the generator function so we can
     # extract information from / record information to it
     def stroke_assessment(self, patient):
+        """
+        Simulates the full assessment and treatment pathway for patients
+        in a stroke pathway.
+
+        Parameters
+        ----------
+        patient : Instance of class `Patient`
+            One single unique patient object.
+        """
         # This code introduces a slight element of randomness into the patient's
         # diagnosis.
 
@@ -852,7 +1058,7 @@ class Model:
             self.results_df.at[patient.id, "Thrombolysis"] = patient.thrombolysis
 
         # The below code records the status of both the SDEC pathway.
-        # Both exist as generators and this data is record to ensure they are
+        # Both exist as generators and this data is recorded to ensure they are
         # operating as expected.
 
         if self.env.now > g.warm_up_period:
@@ -869,7 +1075,7 @@ class Model:
             trace(
                 time=self.env.now,
                 debug=g.show_trace,
-                msg=f"🛏️🏎️ Patient {patient.id} admitted to SDEC (occupancy before admission: {len(self.sdec_occupancy)} of {g.sdec_beds} SDEC beds).",
+                msg=f"🛏️🏎️ Patient {patient.id} admitted to SDEC (occupancy before admission: {len(self.sdec_occupancy)} of {g.sdec_beds} SDEC beds) at {minutes_to_ampm(int(self.env.now % 1440))}.",
                 identifier=patient.id,
                 config=g.trace_config,
             )
@@ -1520,7 +1726,6 @@ class Model:
                     self.ward_occupancy.remove(patient)
 
             # Relevent information is recorded in the results DataFrame.
-
             if self.env.now > g.warm_up_period:
                 self.results_df.at[patient.id, "Q Time Ward"] = patient.q_time_ward
 
@@ -1554,8 +1759,57 @@ class Model:
 
     # MARK: M: Run result calculation
     # This method calculates results over a single run.
-
     def calculate_run_results(self):
+        """
+        Calculate summary statistics and financial metrics for a single simulation run.
+
+        This method aggregates raw data collected throughout the simulation,
+        performs unit conversions, and computes Key Performance Indicators (KPIs)
+        related to clinical flow and financial impact. It cleans the results
+        dataframe and updates class-level attributes for use in trial-level reporting.
+
+        - **Data Cleaning**: Removes the initial dummy row (index label 1) used
+          to initialize the `results_df`.
+        - **Unit Conversions**: Automatically converts ward-related timings
+          (Queue Time and Length of Stay) from minutes to hours for reporting.
+        - **SDEC Logic**: Financial staff costs for SDEC are adjusted based on
+          the `sdec_freeze_counter` to ensure costs are only incurred during
+          active operational periods.
+        - **Precision**:
+            - Financial and time-based KPIs are rounded to 0 decimal places.
+            - Clinical outcomes (MRS Change) are rounded to 2 decimal places.
+
+        Calculated Attributes
+        ---------------------
+        mean_q_time_nurse : float
+            Average wait time for a nurse in minutes.
+        number_of_admissions_avoided : int
+            Total count of patients diverted from inpatient wards via SDEC.
+        mean_q_time_ward : float
+            Average wait time for a ward bed in hours.
+        mean_ward_occupancy : float
+            The average number of beds occupied during the run.
+        admission_delays : int
+            Total number of patients who experienced any wait time for a ward bed.
+        mean_los_ward : float
+            Average inpatient length of stay in hours.
+        sdec_financial_savings : float
+            Gross savings based on avoided bed days.
+        medical_staff_cost : float
+            The net operational cost of SDEC staffing.
+        savings_sdec : float
+            Net financial impact (Savings - Costs) of the SDEC unit.
+        total_savings : float
+            Combined net impact of SDEC and thrombolysis-related savings.
+        mean_mrs_change : float
+            Average change in Modified Rankin Scale for the patient cohort.
+
+        Notes
+        -----
+        GENAI declaration (SR): this docstring has been generated with the aid
+        of Google Gemini Flash.
+        All generated content has been thoroughly reviewed.
+        """
         # Drop the first row of the results DataFrame, as this is just a dummy
         # and will take on the value of zero.
         self.results_df.drop([1], inplace=True)
@@ -1610,6 +1864,47 @@ class Model:
     # Might need to change this...
 
     def plot_stroke_run_graphs(self, plot=True):
+        """
+        Generate and display time-series visualizations for the simulation run.
+
+        This method creates a line plot of the Stroke Ward occupancy over the
+        duration of the simulation. It includes both the raw occupancy data
+        and a linear trend line to help identify long-term capacity issues.
+        Execution is dependent on the global `g.gen_graph` toggle.
+
+        - **Data Cleaning**: Automatically drops the first row (index 0) of
+          `occupancy_graph_df`, which is typically used as a placeholder.
+        - **Trend Analysis**: Uses a first-order polynomial fit (`numpy.polyfit`)
+          to calculate and display a linear trend line over the occupancy data.
+        - **Extensibility**: Contains placeholder (commented-out) logic for
+          an additional "Nurse Assessment Queue" graph.
+        - **Dependencies**: Requires `matplotlib.pyplot` as `plt` and
+          `numpy` as `np`.
+
+        Parameters
+        ----------
+        plot : bool, default True
+            If True, the generated figure is displayed immediately using
+            `plt.show()`. If False, the figure object is returned to the
+            caller for further processing (e.g., aggregation in a Trial report).
+
+        Returns
+        -------
+        matplotlib.figure.Figure or None
+            Returns a Matplotlib Figure object if `plot` is False.
+            Returns None if `plot` is True or if `g.gen_graph` is False.
+
+
+        See Also
+        --------
+        Trial.run_trial : The method that may collect these figures for batch reporting.
+
+        Notes
+        -----
+        GENAI declaration (SR): this docstring has been generated with the aid
+        of Google Gemini Flash.
+        All generated content has been thoroughly reviewed.
+        """
         if g.gen_graph == True:
             # Queue for Nurse Assessment Graph (Currently Commented Out)
 
@@ -1670,6 +1965,28 @@ class Model:
                 return fig
 
     def track_days(self):
+        """
+        A SimPy process that logs the progression of simulation days.
+
+        This generator functions as a background 'clock' process. It wakes up
+        at the start of every 1440-minute interval (24 hours) to output a
+        formatted debug message indicating the current day of the simulation
+        run. This helps track progress in the console during long-running
+        simulations.
+
+        - The day calculation is performed using floor division:
+          `self.env.now // 1440`.
+        - The trace message visibility depends on the `g.show_trace` flag and
+          the `g.tracked_cases` configuration.
+        - This process runs concurrently with patient arrivals and clinical
+          obstructions without interfering with their logic.
+
+        Notes
+        -----
+        GENAI declaration (SR): this docstring has been generated with the aid
+        of Google Gemini Flash.
+        All generated content has been thoroughly reviewed.
+        """
         # Print a debugging message every day
         while self.env.now <= g.sim_duration:
             # TODO: this doesn't always reliably appear depending on number of tracked cases
@@ -1686,6 +2003,52 @@ class Model:
     # The run method starts up the DES entity generators, runs the simulation,
     # and in turns calls anything we need to generate results for the run
     def run(self):
+        """
+        Execute the simulation run lifecycle.
+
+        This method initializes the simulation by registering background
+        processes, executes the SimPy event loop for a specified duration,
+        and performs post-simulation data processing and export tasks.
+
+        The execution sequence is as follows:
+        1. Register time-tracking, patient arrival, and resource obstruction
+           generators as SimPy processes.
+        2. Execute the simulation engine until the combined limit of the
+           warm-up period and active simulation duration is reached.
+        3. Trigger final calculation of run-level results.
+        4. (Optional) Export patient-level results to a CSV file.
+
+        - **Warm-up Period**: The total runtime includes `g.warm_up_period`. This
+          is crucial for allowing the model to reach a 'steady state' before
+          results are recorded as valid.
+        - **Concurrency**: All methods passed to `self.env.process()` run
+          pseudo-parallelly, managed by the SimPy event scheduler.
+        - **Post-Processing**: This method must be called for `results_df`
+          and other KPIs to be populated with final values.
+
+        See Also
+        --------
+        track_days : The background process that logs day transitions.
+
+        generator_patient_arrivals: generates in-hours patients and sends them through the
+            assessment pathway
+
+        generator_patient_arrivals_ooh: generates out-of-hours patients and sends them through the
+            assessment pathway
+
+        obstruct_ctp: ensures the ctp scanner is only available for the specified times
+
+        obstruct_sdec: ensures the sdec is only available for the specified times
+
+        calculate_run_results : The method called to process data after the
+            event loop finishes.
+
+        Notes
+        -----
+        GENAI declaration (SR): this docstring has been generated with the aid
+        of Google Gemini Flash.
+        All generated content has been thoroughly reviewed.
+        """
         # starts up the generators in the model, of which there are three.
 
         self.env.process(self.track_days())
