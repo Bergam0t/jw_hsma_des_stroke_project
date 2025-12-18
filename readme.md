@@ -47,8 +47,9 @@ You can preview the docs with the command `mkdocs serve`.
 
 However, all publishing of the site is handled by GitHub actions; you do not need to build the documentation locally for it to update.
 
-**If you are forking this repository**, you will need to go to your repository settings, then to 'pages', and choose to build the page with GitHub actions.
+**If you are forking this repository**, you will need to go to your repository settings, then to 'pages', and choose 'Deploy from a branch', then make sure it is set to 'gh-pages' '/(root)', then save your selection.
 The provided GitHub actions workflow in the .github/workflows/publish-docs.yml file will then be able to publish the docs to your page.
 
-You will also need to update the `site_url` parameter in the `mkdocs.yml` to reflect the new site path.
+You will also need to update the `site_url` and `repository_url` parameter in the `mkdocs.yml` to reflect their new paths.
+
 If you are not using a custom domain, the site will follow the pattern `http://your-github-username.github.io/your-forked-repository-name`
