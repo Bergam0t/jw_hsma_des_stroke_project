@@ -75,7 +75,6 @@ with st.sidebar:
         g.sdec_opening_hour = sdec_open_time.hour
 
         sdec_unaval_perc = ((24.0 - sdec_avail_hours) / 24.0) * 100
-        sdec_available_perc = 100.0 - sdec_unaval_perc
 
         ctp_avail_hours = st.slider(
             "How many hours a day should the CT perfusion scanner be available?",
@@ -96,7 +95,9 @@ with st.sidebar:
         g.ctp_opening_hour = ctp_open_time.hour
 
         ctp_unaval_perc = ((24.0 - ctp_avail_hours) / 24.0) * 100
-        ctp_available_perc = 100.0 - ctp_unaval_perc
+
+    sdec_available_perc = 100.0 - sdec_unaval_perc
+    ctp_available_perc = 100.0 - ctp_unaval_perc
 
     if sdec_available_perc <= 100 and sdec_available_perc >= 0:
         g.sdec_value = sdec_available_perc
@@ -111,7 +112,7 @@ with st.sidebar:
         g.ctp_value = ctp_available_perc
         g.ctp_unav_freq = 1440 * (ctp_available_perc / 100)
         g.ctp_unav_time = 1440 - g.ctp_unav_freq
-    elif ctp_unaval_perc == 100:
+    elif ctp_available_perc == 100:
         g.ctp_value = ctp_available_perc
         g.ctp_unav_freq = g.sim_duration * 2
         g.ctp_unav_time = 0
