@@ -2104,6 +2104,12 @@ class Trial:
         self.df_trial_results["Mean MRS Change"] = [0.0]
         self.df_trial_results.set_index("Run Number", inplace=True)
 
+        self.graph_objects = []
+        self.model_objects = []
+        # self.patient_objects = {}
+        self.trial_patient_dataframes = []
+        self.trial_patient_df = pd.DataFrame()
+
     # MARK: M: run_trial
     # Method to run a trial
 
@@ -2117,6 +2123,8 @@ class Trial:
         for run in range(g.number_of_runs):
             my_model = Model(run)
             my_model.run()
+
+            self.model_objects.append(my_model)
 
             self.df_trial_results.loc[run] = [
                 my_model.mean_q_time_nurse,
@@ -2133,10 +2141,23 @@ class Trial:
                 my_model.mean_mrs_change,
             ]
 
+            # self.patient_objects[run] = my_model.patient_objects
+            patient_dataframe = pd.DataFrame(
+                [p.__dict__ for p in my_model.patient_objects]
+            )
+            patient_dataframe["run"] = run + 1
+            self.trial_patient_dataframes.append(patient_dataframe)
+
+        self.trial_patient_df = pd.concat(self.trial_patient_dataframes)
+
         if g.write_to_csv == True:
             self.df_trial_results.to_csv(
                 f"trial {g.trials_run_counter} trial results.csv", index=False
             )
+
+        # TODO: SR: FIX appending of per-run graphs to trial class
+        # if g.gen_graph:
+        #     self.graph_objects.append(my_model.plot_stroke_run_graphs(plot=False))
 
         # This is new code that will store all averages to compare across
         # the different trials. It does this by checking if the attribute
