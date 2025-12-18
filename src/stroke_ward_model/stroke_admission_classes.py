@@ -1523,8 +1523,22 @@ class Model:
 
             if self.env.now > g.warm_up_period:
                 self.results_df.at[patient.id, "Q Time Ward"] = patient.q_time_ward
-                self.results_df.at[patient.id, "Ward LOS"] = sampled_ward_act_time
+
+            # TODO: SR: Confirm this is expected
+            # SR: This triggered an error in a patient with a diagnosis of 1 and MRS of 0
+            # who didn't seem to have a ward stay
+            # TODO: SR: I've tweaked this to take whichever of the ward_los or thrombolysis los is generated
+            # TODO SR: It would be better to take a more robust approach to this step.
+            try:
+                final_ward_los = sampled_ward_act_time
+            except:
+                final_ward_los = sampled_ward_act_time_thrombolysis
+
+            if self.env.now > g.warm_up_period:
+                self.results_df.at[patient.id, "Ward LOS"] = final_ward_los
+
                 self.results_df.at[patient.id, "MRS DC"] = patient.mrs_discharge
+
                 self.results_df.at[patient.id, "MRS Change"] = (
                     patient.mrs_type - patient.mrs_discharge
                 )
