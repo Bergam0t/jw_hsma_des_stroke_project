@@ -436,7 +436,7 @@ class Model:
     def is_out_of_hours(self, time_of_day):
         return not self.is_in_hours(time_of_day)
 
-    # MARK: in-hours arrivals
+    # MARK: M: in-hours arrivals
     # A generator function for the patient arrivals in hours.
     def generator_patient_arrivals(self):
         while True:
@@ -459,8 +459,9 @@ class Model:
                 trace(
                     time=self.env.now,
                     debug=g.show_trace,
-                    msg=f"☀️ Patient {self.patient_counter} Generated at {minutes_to_ampm(int(self.env.now % 1440))}",
-                    identifier=self.patient_counter,
+                    msg=f"☀️ IN-HOURS Patient {p.id} generated at {minutes_to_ampm(int(self.env.now % 1440))}. Diagnosis: {p.diagnosis}. MRS type: {p.mrs_type}.",
+                    identifier=p.id,
+                    config=g.trace_config,
                 )
 
                 p.arrived_ooh = False
@@ -472,6 +473,9 @@ class Model:
                 # patient's journey through the system)
                 self.env.process(self.stroke_assessment(p))
 
+                # TODO: SR query: explore whether this is the most intuitive/easily managed way to
+                # handle interarrival rate. I think this means arrivals average
+                # every 200 minutes.
                 sampled_inter = random.expovariate(0.025 / g.patient_inter_day)
                 trace(
                     time=self.env.now,
@@ -488,7 +492,7 @@ class Model:
             else:
                 yield self.env.timeout(1)
 
-    # MARK: OOH arrivals
+    # MARK: M: OOH arrivals
     # A generator function for the patient arrivals out of hours.
     def generator_patient_arrivals_ooh(self):
         while True:
@@ -511,7 +515,7 @@ class Model:
                 trace(
                     time=self.env.now,
                     debug=g.show_trace,
-                    msg=f"🌙 Patient {p.id} (OOH) generated at {minutes_to_ampm(int(self.env.now % 1440))}. Diagnosis: {p.diagnosis}. MRS type: {p.mrs_type}.",
+                    msg=f"🌙 OUT OF HOURS Patient {p.id} generated at {minutes_to_ampm(int(self.env.now % 1440))}. Diagnosis: {p.diagnosis}. MRS type: {p.mrs_type}.",
                     identifier=p.id,
                     config=g.trace_config,
                 )
@@ -525,6 +529,9 @@ class Model:
                 # patient's journey through the system)
                 self.env.process(self.stroke_assessment(p))
 
+                # TODO: SR query: explore whether this is the most intuitive/easily managed way to
+                # handle interarrival rate. I think this means arrivals average
+                # every 666.6 minutes.
                 sampled_inter = random.expovariate(0.0075 / g.patient_inter_night)
                 trace(
                     time=self.env.now,
@@ -541,7 +548,7 @@ class Model:
             else:
                 yield self.env.timeout(1)
 
-    # MARK: Obstruct CTP
+    # MARK: M: Obstruct CTP
     def obstruct_ctp(self):
         # TODO SR: Confirm this is ok with John
         # SR: Add initial offset
@@ -579,7 +586,7 @@ class Model:
                 )
                 g.ctp_unav = False
 
-    # MARK: Obstruct SDEC
+    # MARK: M: Obstruct SDEC
     def obstruct_sdec(self):
         # TODO SR: Confirm this is ok with John
         #  SR: Add initial offset
@@ -619,7 +626,7 @@ class Model:
                 if self.env.now > g.warm_up_period:
                     self.sdec_freeze_counter += 1
 
-    # MARK: Stroke assessment
+    # MARK: M: Stroke assessment
     # A generator function that represents the pathway for a patient going
     # through the stroke assessment process.
     # The patient object is passed in to the generator function so we can
@@ -690,10 +697,11 @@ class Model:
             # Freeze the function until the request for a nurse can be met.
             # The patient is currently queuing.
             yield req
+
             trace(
                 time=self.env.now,
                 debug=g.show_trace,
-                msg=f"👩‍⚕️ Patient {patient.id} is being seen by a nurse.",
+                msg=f"👩‍⚕️ Patient {patient.id} is being seen by a nurse at {minutes_to_ampm(int(self.env.now % 1440))}.",
                 identifier=patient.id,
                 config=g.trace_config,
             )
@@ -751,7 +759,7 @@ class Model:
             trace(
                 time=self.env.now,
                 debug=g.show_trace,
-                msg=f"➡️ Patient {patient.id} sent on CTP scanner pathway.",
+                msg=f"➡️ Patient {patient.id} sent on CTP scanner pathway at {minutes_to_ampm(int(self.env.now % 1440))}.",
                 identifier=patient.id,
                 config=g.trace_config,
             )
@@ -769,7 +777,7 @@ class Model:
             trace(
                 time=self.env.now,
                 debug=g.show_trace,
-                msg=f"➡️ Patient {patient.id} finishes CTP scan after {sampled_ctp_act_time:.1f} minutes.",
+                msg=f"➡️ Patient {patient.id} finishes CTP scan at {minutes_to_ampm(int(self.env.now % 1440))} after {sampled_ctp_act_time:.1f} minutes.",
                 identifier=patient.id,
                 config=g.trace_config,
             )
@@ -787,10 +795,13 @@ class Model:
             trace(
                 time=self.env.now,
                 debug=g.show_trace,
-                msg=f"🚫 Patient {patient.id} NOT sent on CTP scanner pathway - normal CT scan commencing.",
+                msg=f"🚫 Patient {patient.id} NOT sent on CTP scanner pathway - normal CT scan commencing at {minutes_to_ampm(int(self.env.now % 1440))}.",
                 identifier=patient.id,
                 config=g.trace_config,
             )
+
+            # TODO: SR: Confirm if ct act time should still pass in this instance
+            # TODO: SR: Is a standard CT scan performed when CT perfusion scanner not available?
             sampled_ct_act_time = random.expovariate(1.0 / g.mean_n_ct_time)
             patient.ct_duration = sampled_ct_act_time
 
@@ -799,7 +810,7 @@ class Model:
             trace(
                 time=self.env.now,
                 debug=g.show_trace,
-                msg=f"🚫 Patient {patient.id} finishes normal CT scan after {sampled_ct_act_time:.1f} minutes.",
+                msg=f"🚫 Patient {patient.id} finishes normal CT scan at {minutes_to_ampm(int(self.env.now % 1440))} after {sampled_ct_act_time:.1f} minutes.",
                 identifier=patient.id,
                 config=g.trace_config,
             )
@@ -914,8 +925,10 @@ class Model:
             ):
                 patient.admission_avoidance = True
 
+            # Calculate SDEC stay time from exponential
             sampled_sdec_stay_time = random.expovariate(1.0 / g.mean_n_sdec_time)
 
+            # Add patient SDEC LOS to their patient object
             patient.sdec_los = sampled_sdec_stay_time
             # Freeze this function in place for the activity time we sampled
             # above.
@@ -949,7 +962,7 @@ class Model:
             trace(
                 time=self.env.now,
                 debug=g.show_trace,
-                msg=f"🏎️ Patient {patient.id} discharged from SDEC after {patient.sdec_los:.1f} minutes ({(patient.sdec_los / 60 / 24):.1f} days). Occupancy after discharge: {len(self.sdec_occupancy)} of {g.sdec_beds} SDEC beds)",
+                msg=f"🏎️ Patient {patient.id} discharged from SDEC at {minutes_to_ampm(int(self.env.now % 1440))} after {patient.sdec_los:.1f} minutes ({(patient.sdec_los / 60 / 24):.1f} days). Occupancy after discharge: {len(self.sdec_occupancy)} of {g.sdec_beds} SDEC beds",
                 identifier=patient.id,
                 config=g.trace_config,
             )
@@ -1056,14 +1069,13 @@ class Model:
 
             with self.ward_bed.request() as req:
                 yield req
-
                 # Add patient to the ward list
 
                 self.ward_occupancy.append(patient)
                 trace(
                     time=self.env.now,
                     debug=g.show_trace,
-                    msg=f"🛏️ Patient {patient.id} admitted to main ward. Occupancy after admission: {len(self.ward_occupancy)} of {g.number_of_ward_beds} ward beds",
+                    msg=f"🛏️ Patient {patient.id} admitted to main ward at {minutes_to_ampm(int(self.env.now % 1440))}. Occupancy after admission: {len(self.ward_occupancy)} of {g.number_of_ward_beds} ward beds",
                     identifier=patient.id,
                     config=g.trace_config,
                 )
@@ -1462,10 +1474,11 @@ class Model:
                         yield self.env.timeout(sampled_ward_act_time)
                         self.ward_occupancy.remove(patient)
 
-                ###############################
-                # MARK: Patient diagnosis = 2 #
-                # Transient Ischaemic Attack  #
-                ###############################
+                #################################
+                # MARK: Patient diagnosis = 2   #
+                # Transient Ischaemic Attack    #
+                # Not suitable for thrombolysis #
+                #################################
                 # The below code is for the non stroke diagnosis.
 
                 if patient.patient_diagnosis == 2:
@@ -1520,11 +1533,12 @@ class Model:
             trace(
                 time=self.env.now,
                 debug=g.show_trace,
-                msg=f"🚗 Patient {patient.id} discharged from main ward after {final_ward_los:.1f} minutes ({(final_ward_los / 24 / 60):.1f} days). Occupancy after discharge: {len(self.ward_occupancy)} of {g.number_of_ward_beds} ward beds)",
+                msg=f"🚗 Patient {patient.id} discharged from main ward at {minutes_to_ampm(int(self.env.now % 1440))} after {final_ward_los:.1f} minutes ({(final_ward_los / 24 / 60):.1f} days). Occupancy after discharge: {len(self.ward_occupancy)} of {g.number_of_ward_beds} ward beds",
                 identifier=patient.id,
                 config=g.trace_config,
             )
 
+    # MARK: M: Run result calculation
     # This method calculates results over a single run.
 
     def calculate_run_results(self):
@@ -1576,6 +1590,7 @@ class Model:
 
         self.mean_mrs_change = round(self.results_df["MRS Change"].mean(), 2)
 
+    # MARK: M: per-run plotting
     # This method plots the stroke nurse assessment queue graph, as it is after
     # the run method it will appear after the run has completed in the output.
     # Might need to change this...
@@ -1653,9 +1668,9 @@ class Model:
             )
             yield self.env.timeout(1440)
 
+    # MARK: M: run model
     # The run method starts up the DES entity generators, runs the simulation,
     # and in turns calls anything we need to generate results for the run
-
     def run(self):
         # starts up the generators in the model, of which there are three.
 
@@ -1690,6 +1705,7 @@ class Model:
 # Class representing a Trial for our simulation - a batch of simulation runs.
 
 
+# MARK: Trial class
 class Trial:
     # The constructor sets up a pandas dataframe that will store the key
     # results from each run with run number as the index.
@@ -1711,6 +1727,7 @@ class Trial:
         self.df_trial_results["Mean MRS Change"] = [0.0]
         self.df_trial_results.set_index("Run Number", inplace=True)
 
+    # MARK: M: run_trial
     # Method to run a trial
 
     def run_trial(self):
