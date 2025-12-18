@@ -1574,7 +1574,7 @@ class Model:
     # the run method it will appear after the run has completed in the output.
     # Might need to change this...
 
-    def plot_stroke_run_graphs(self):
+    def plot_stroke_run_graphs(self, plot=True):
         if g.gen_graph == True:
             # Queue for Nurse Assessment Graph (Currently Commented Out)
 
@@ -1629,7 +1629,10 @@ class Model:
 
             ax.legend(loc="upper right")
 
-            fig.show()
+            if plot:
+                fig.show()
+            else:
+                return fig
 
     # MARK: run model
     # The run method starts up the DES entity generators, runs the simulation,
