@@ -123,12 +123,13 @@ class g:
     patient_inter_day = 5
     patient_inter_night = 5
     number_of_nurses = 2
-    mean_n_consult_time = 60
-    mean_n_ct_time = 20
     number_of_ctp = 1
     sdec_beds = 5
-    mean_n_sdec_time = 240
     number_of_ward_beds = 1
+
+    mean_n_consult_time = 60
+    mean_n_ct_time = 20
+    mean_n_sdec_time = 240
 
     # Different variables for ward stay based on diagnosis, thrombolysis and MRS
     mean_n_i_ward_time_mrs_0 = 1440 * 6
