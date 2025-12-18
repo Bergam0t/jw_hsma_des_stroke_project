@@ -2076,7 +2076,8 @@ class Model:
                 index=False,
             )
 
-        self.plot_stroke_run_graphs()
+        # TODO: SR: I have commented this out for now
+        # self.plot_stroke_run_graphs()
 
 
 # Class representing a Trial for our simulation - a batch of simulation runs.
