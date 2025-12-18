@@ -422,11 +422,27 @@ class Model:
         # A list to store the patient objects
         self.patient_objects = []
 
+    def is_in_hours(self, time_of_day):
+        start = g.in_hours_start_mins
+        end = g.ooh_start_mins
+
+        if start < end:
+            # Normal case (does not cross midnight)
+            return start <= time_of_day < end
+        else:
+            # Wraps over midnight
+            return time_of_day >= start or time_of_day < end
+
+    def is_out_of_hours(self, time_of_day):
+        return not self.is_in_hours(time_of_day)
+
     # MARK: in-hours arrivals
     # A generator function for the patient arrivals in hours.
     def generator_patient_arrivals(self):
         while True:
-            if 0 <= self.env.now % 1440 < 960:
+            # if 0 <= self.env.now % 1440 < 960
+            time_of_day = self.env.now % 1440
+            if self.is_in_hours(time_of_day):
                 # Change the Global Class variable for the generator to TRUE
                 g.patient_arrival_gen_1 = True
                 g.patient_arrival_gen_2 = False
@@ -476,7 +492,9 @@ class Model:
     # A generator function for the patient arrivals out of hours.
     def generator_patient_arrivals_ooh(self):
         while True:
-            if 960 <= self.env.now % 1440 < 1440:
+            # if 960 <= self.env.now % 1440 < 1440:
+            time_of_day = self.env.now % 1440
+            if self.is_out_of_hours(time_of_day):
                 # Change the Global Class variable for the generator to TRUE
                 g.patient_arrival_gen_1 = False
                 g.patient_arrival_gen_2 = True
@@ -525,6 +543,12 @@ class Model:
 
     # MARK: Obstruct CTP
     def obstruct_ctp(self):
+        # TODO SR: Confirm this is ok with John
+        # SR: Add initial offset
+        # SR: Patient generators have also been updated
+        # to match with how this is working
+        yield self.env.timeout(g.ctp_opening_hour * 60)
+
         while True:
             yield self.env.timeout(g.ctp_unav_freq)
             # Once elapsed, this generator requests the ctp scanner with
@@ -557,6 +581,12 @@ class Model:
 
     # MARK: Obstruct SDEC
     def obstruct_sdec(self):
+        # TODO SR: Confirm this is ok with John
+        #  SR: Add initial offset
+        # SR: Patient generators have also been updated
+        # to match with how this is working
+        yield self.env.timeout(g.sdec_opening_hour * 60)
+
         while True:
             yield self.env.timeout(g.sdec_unav_freq)
             # Once elapsed, this generator requests the SDEC with
