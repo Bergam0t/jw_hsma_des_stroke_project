@@ -5,6 +5,7 @@ import simpy.resources
 import numpy as np
 import matplotlib.pyplot as plt
 from sim_tools.trace import trace
+from sim_tools.distributions import Gamma, Exponential, Normal, DiscreteEmpirical
 from stroke_ward_model.utils import minutes_to_ampm
 from vidigi.resources import VidigiPriorityStore as PriorityResource
 from vidigi.resources import VidigiStore as Resource
@@ -107,9 +108,9 @@ class g:
     sdec_dr_cost_min : float
         Cost per minute for SDEC doctor time.
     inpatient_bed_cost : float
-        Cost of a standard inpatient bed stay.
+        Cost of a standard inpatient bed stay, per day.
     inpatient_bed_cost_thrombolysis : float
-        Cost of an inpatient stay following thrombolysis.
+        Cost of an inpatient stay following thrombolysis, per day.
     sdec_unav_time : int
         Operational unavailability duration of SDEC
     sdec_unav_freq : int
@@ -134,6 +135,10 @@ class g:
         Flag used by the simulation to control one patient arrival stream.
     patient_arrival_gen_2 : bool
         Flag used by the simulation to control a second patient arrival stream.
+    master_seed : int
+        Master random seed used to adjust the underlying seeds used to populate
+        the random number streams. Trials run without changing parameters or the
+        master seed will be consistent.
 
     Notes
     -----
@@ -165,6 +170,9 @@ class g:
     mean_n_sdec_time = 240
 
     # Different variables for ward stay based on diagnosis, thrombolysis and MRS
+    # TODO: SR - how are these determined? Assume historical data?
+    # TODO: SR - what is suspected reason for MRS of 1 having lower LOS than MRS of 0 whether ICH or I?
+
     mean_n_i_ward_time_mrs_0 = 1440 * 6
     mean_n_i_ward_time_mrs_1 = 1440 * 4
     mean_n_i_ward_time_mrs_2 = 1440 * 8
@@ -179,11 +187,23 @@ class g:
     mean_n_ich_ward_time_mrs_4 = 1440 * 36
     mean_n_ich_ward_time_mrs_5 = 1440 * 36
 
+    # Set temporary shape parameters for gamma distribution
+    ich_shape = 1.5
+    i_shape = 2.0
+
+    # Set parameters for mild (TIA) and non-stroke stays
     mean_n_non_stroke_ward_time = 4320
     mean_n_tia_ward_time = 1440
+    # Set temporary shape parameters for gamma distribution
+    tia_shape = 3.0
+    non_stroke_shape = 4.0
+
     thrombolysis_los_save = 0.75
 
     sdec_dr_cost_min = 0.50
+    # TODO: SR: John, I assume these are costs per day?
+    # Can we explain where these values are taken from?
+    # Is it specific to a given trust? What year are these values calculated for?
     inpatient_bed_cost = 876
     inpatient_bed_cost_thrombolysis = 528.17
     mean_mrs = 2
@@ -197,8 +217,8 @@ class g:
     # Admission Range (% Chance of Admission) for TIA and Stroke Mimic, non
     # stroke shares the range with stroke mimic in this model. (This is
     # reflected in our real data mainly because most non strokes are often
-    #  mimics that are not classified under the stroke mimic criteria in our
-    #  data collection)
+    # mimics that are not classified under the stroke mimic criteria in our
+    # data collection)
     tia_admission = 10
     stroke_mimic_admission = 30
 
@@ -236,6 +256,8 @@ class g:
     show_trace = True
     tracked_cases = list(range(1, 50))
     trace_config = {"tracked": tracked_cases}
+
+    master_seed = 42
 
 
 # MARK: Patient
@@ -311,17 +333,25 @@ class Patient:
         self.q_time_ward = np.NaN  # SR NOTE - changed this to NaN by default
         # 0 = known onset, 1 = unknown onset (in ctp range), 2 = unknown (out of
         # ctp range)
-        self.onset_type = random.randint(0, 2)
+        # SR NOTE: I've moved all random generation to the start of their assessment
+        # to allow for reproducibility
+        # self.onset_type = random.randint(0, 2)
+        self.onset_type = np.NaN
         # Max MRS is set to 5
-        self.mrs_type = min(round(random.expovariate(1.0 / g.mean_mrs)), 5)
+        # self.mrs_type = min(round(random.expovariate(1.0 / g.mean_mrs)), 5)
+        self.mrs_type = np.NaN
         self.mrs_discharge = np.NaN  # SR NOTE - changed this to NaN by default
         # <=5 is ICH, <=55 is I, <= 70 is TIA, <=85 is Stroke Mimic, >85 is non\
         # stroke, this set in g class
-        self.diagnosis = random.randint(0, 100)
+        # TODO: SR: This does not appear to be in sync with actual values seen in the g class
+        # TODO: SR: Which is correct?
+        # self.diagnosis = random.randint(0, 100)
+        self.diagnosis = np.NaN
         # 0 = ICH, 1 = I, 2 = TIA, 3 = Stroke Mimic, 4 = non stroke
         self.patient_diagnosis = np.NaN  # SR NOTE - changed this to NaN by default
         self.priority = 1
-        self.non_admission = random.randint(0, 100)
+        # self.non_admission = random.randint(0, 100)
+        self.non_admission = np.NaN
         self.advanced_ct_pathway = False
         self.sdec_pathway = False
         self.thrombolysis = False
@@ -384,13 +414,13 @@ class Model:
     patient_counter : int
         A running count of patients who have entered the system, used as a unique ID.
         This is shared across in-hours and out-of-hours arrivals.
-    nurse : simpy.resources.resource.Resource
+    nurse : vidigi.resources.VidigiStore
         A SimPy resource representing stroke nurses available for assessment.
-    ctp_scanner : simpy.resources.resource.PriorityResource
+    ctp_scanner : vidigi.resources.VidigiPriorityStore
         A priority resource representing CTP scanners.
-    sdec_bed : simpy.resources.resource.PriorityResource
+    sdec_bed : vidigi.resources.VidigiPriorityStore
         A priority resource representing Same Day Emergency Care (SDEC) beds.
-    ward_bed : simpy.resources.resource.Resource
+    ward_bed : vidigi.resources.VidigiStore
         A SimPy resource representing standard ward beds.
     run_number : int
         The identifier for the current simulation iteration.
@@ -532,6 +562,147 @@ class Model:
         # A list to store the patient objects
         self.patient_objects = []
 
+        self.initialise_distributions()
+
+    ##############################
+    # MARK: Set up distributions #
+    ##############################
+    def initialise_distributions(self):
+        """
+        Set up distributions for sampling from.
+        Pulls distribution parameters from g class where relevant.
+        Use of Seed
+        """
+        ss = np.random.SeedSequence(g.master_seed + self.run_number)
+        seeds = ss.spawn(35)
+
+        # Inter-arrival times
+        self.patient_inter_day_dist = Exponential(
+            mean=g.patient_inter_day, random_seed=seeds[0]
+        )
+
+        self.patient_inter_night_dist = Exponential(
+            mean=g.patient_inter_night, random_seed=seeds[1]
+        )
+
+        self.nurse_consult_time_dist = Exponential(
+            mean=g.mean_n_consult_time, random_seed=seeds[2]
+        )
+        self.ct_time_dist = Exponential(mean=g.mean_n_ct_time, random_seed=seeds[3])
+        self.sdec_time_dist = Exponential(mean=g.mean_n_sdec_time, random_seed=seeds[4])
+
+        self.i_ward_time_mrs_0_dist = Exponential(
+            mean=g.mean_n_i_ward_time_mrs_0, random_seed=seeds[5]
+        )
+        self.i_ward_time_mrs_1_dist = Exponential(
+            mean=g.mean_n_i_ward_time_mrs_1, random_seed=seeds[6]
+        )
+        self.i_ward_time_mrs_2_dist = Exponential(
+            mean=g.mean_n_i_ward_time_mrs_2, random_seed=seeds[7]
+        )
+        self.i_ward_time_mrs_3_dist = Exponential(
+            mean=g.mean_n_i_ward_time_mrs_3, random_seed=seeds[8]
+        )
+        self.i_ward_time_mrs_4_dist = Exponential(
+            mean=g.mean_n_i_ward_time_mrs_4, random_seed=seeds[9]
+        )
+        self.i_ward_time_mrs_5_dist = Exponential(
+            mean=g.mean_n_i_ward_time_mrs_5, random_seed=seeds[10]
+        )
+
+        self.ich_ward_time_mrs_0_dist = Exponential(
+            mean=g.mean_n_ich_ward_time_mrs_0, random_seed=seeds[11]
+        )
+        self.ich_ward_time_mrs_1_dist = Exponential(
+            mean=g.mean_n_ich_ward_time_mrs_1, random_seed=seeds[12]
+        )
+        self.ich_ward_time_mrs_2_dist = Exponential(
+            mean=g.mean_n_ich_ward_time_mrs_2, random_seed=seeds[13]
+        )
+        self.ich_ward_time_mrs_3_dist = Exponential(
+            mean=g.mean_n_ich_ward_time_mrs_3, random_seed=seeds[14]
+        )
+        self.ich_ward_time_mrs_4_dist = Exponential(
+            mean=g.mean_n_ich_ward_time_mrs_4, random_seed=seeds[15]
+        )
+        self.ich_ward_time_mrs_5_dist = Exponential(
+            mean=g.mean_n_ich_ward_time_mrs_5, random_seed=seeds[16]
+        )
+
+        self.tia_ward_time_dist = Exponential(
+            mean=g.mean_n_non_stroke_ward_time, random_seed=seeds[17]
+        )
+        self.non_stroke_ward_time_dist = Exponential(
+            mean=g.mean_n_tia_ward_time, random_seed=seeds[18]
+        )
+
+        # Patient Attribute Distributions
+        # TODO: Is this the best distribution for this?
+        self.onset_type_distribution = DiscreteEmpirical(
+            values=[0, 1, 2], freq=[1, 1, 1], random_seed=seeds[19]
+        )
+
+        self.mrs_type_distribution = Exponential(g.mean_mrs, random_seed=seeds[20])
+
+        self.diagnosis_distribution = DiscreteEmpirical(
+            values=list(range(0, 101)),
+            freq=[1 for i in range(101)],
+            random_seed=seeds[21],
+        )
+
+        self.non_admission_distribution = DiscreteEmpirical(
+            values=list(range(0, 101)),
+            freq=[1 for i in range(101)],
+            random_seed=seeds[22],
+        )
+
+        # TODO: Is this the best distribution for this?
+        # Per-patient diagnosis randomisation
+        # self.ich_range = random.normalvariate(g.ich, 1)
+        self.ich_range_distribution = Normal(g.ich, 1, random_seed=seeds[23])
+        # self.i_range = max(random.normalvariate(g.i, 1), self.ich_range)
+        self.i_range_distribution = Normal(g.i, 1, random_seed=seeds[24])
+        # self.tia_range = max(random.normalvariate(g.tia, 1), self.i_range)
+        self.tia_range_distribution = Normal(g.tia, 1, random_seed=seeds[25])
+        # self.stroke_mimic_range = max(
+        #     random.normalvariate(g.stroke_mimic, 1), self.tia_range
+        # )
+        self.stroke_mimic_range_distribution = Normal(
+            g.stroke_mimic, 1, random_seed=seeds[26]
+        )
+        # self.non_stroke_range = max(
+        #     random.normalvariate(g.stroke_mimic, 1), self.stroke_mimic_range
+        # )
+        self.non_stroke_range_distribution = Normal(
+            g.stroke_mimic, 1, random_seed=seeds[27]
+        )
+
+        # TODO: Is this the best distribution for this?
+        # Admission chance distributions
+        # self.tia_admission_chance = random.normalvariate(g.tia_admission, 1)
+        self.tia_admission_chance_distribution = Normal(
+            g.tia_admission, 1, random_seed=seeds[28]
+        )
+        # self.stroke_mimic_admission_chance = random.normalvariate(
+        #     g.stroke_mimic_admission, 1
+        # )
+        self.stroke_mimic_admission_chance_distribution = Normal(
+            g.stroke_mimic_admission, 1, random_seed=seeds[29]
+        )
+
+        # MRS on discharge distribution
+        self.mrs_reduction_during_stay = DiscreteEmpirical(
+            values=[0, 1],
+            freq=[1, 1],
+            random_seed=seeds[30],
+        )
+
+        self.mrs_reduction_during_stay_thrombolysed = DiscreteEmpirical(
+            values=[0, 1, 2],
+            freq=[1, 1, 1],
+            random_seed=seeds[31],
+        )
+
     def is_in_hours(self, time_of_day):
         start = g.in_hours_start_mins
         end = g.ooh_start_mins
@@ -629,7 +800,9 @@ class Model:
                 # reason, but I've swapped it to a more intuitive use and something that will allow
                 # for setting via the app interface too
                 # sampled_inter = random.expovariate(0.025 / 5)
-                sampled_inter = random.expovariate(1.0 / g.patient_inter_day)
+                # sampled_inter = random.expovariate(1.0 / g.patient_inter_day)
+                sampled_inter = self.patient_inter_day_dist.sample()
+
                 trace(
                     time=self.env.now,
                     debug=g.show_trace,
@@ -730,7 +903,9 @@ class Model:
                 # reason, but I've swapped it to a more intuitive use and something that will allow
                 # for setting via the app interface too
                 # sampled_inter = random.expovariate(0.0075 / 5)
-                sampled_inter = random.expovariate(1.0 / g.patient_inter_night)
+                # sampled_inter = random.expovariate(1.0 / g.patient_inter_night)
+                sampled_inter = self.patient_inter_night_dist.sample()
+
                 trace(
                     time=self.env.now,
                     debug=g.show_trace,
@@ -890,17 +1065,37 @@ class Model:
         patient : Instance of class `Patient`
             One single unique patient object.
         """
+
+        # Populate various patient attributes
+        # patient.onset_type = random.randint(0, 2)
+        patient.onset_type = self.onset_type_distribution.sample()
+        # patient.mrs_type = min(round(random.expovariate(1.0 / g.mean_mrs)), 5)
+        patient.mrs_type = min(round(self.mrs_type_distribution.sample()), 5)
+        # patient.diagnosis = random.randint(0, 100)
+        patient.diagnosis = self.diagnosis_distribution.sample()
+        # patient.non_admission = random.randint(0, 100)
+        patient.non_admission = self.non_admission_distribution.sample()
+
         # This code introduces a slight element of randomness into the patient's
         # diagnosis.
 
-        self.ich_range = random.normalvariate(g.ich, 1)
-        self.i_range = max(random.normalvariate(g.i, 1), self.ich_range)
-        self.tia_range = max(random.normalvariate(g.tia, 1), self.i_range)
+        # self.ich_range = random.normalvariate(g.ich, 1)
+        self.ich_range = self.ich_range_distribution.sample()
+        # self.i_range = max(random.normalvariate(g.i, 1), self.ich_range)
+        self.i_range = max(self.i_range_distribution.sample(), self.ich_range)
+        # self.tia_range = max(random.normalvariate(g.tia, 1), self.i_range)
+        self.tia_range = max(self.tia_range_distribution.sample(), self.i_range)
+        # self.stroke_mimic_range = max(
+        #     random.normalvariate(g.stroke_mimic, 1), self.tia_range
+        # )
         self.stroke_mimic_range = max(
-            random.normalvariate(g.stroke_mimic, 1), self.tia_range
+            self.stroke_mimic_range_distribution.sample(), self.tia_range
         )
+        # self.non_stroke_range = max(
+        #     random.normalvariate(g.stroke_mimic, 1), self.stroke_mimic_range
+        # )
         self.non_stroke_range = max(
-            random.normalvariate(g.stroke_mimic, 1), self.stroke_mimic_range
+            self.non_stroke_range_distribution.sample(), self.stroke_mimic_range
         )
 
         if patient.diagnosis <= self.ich_range:
@@ -1004,7 +1199,8 @@ class Model:
             # using a Exponential distribution but might need to switch to
             # a Log normal one (though the intense variation in the real life
             # consult time might mean a exponetial distribution is better)
-            sampled_nurse_act_time = random.expovariate(1.0 / g.mean_n_consult_time)
+            # sampled_nurse_act_time = random.expovariate(1.0 / g.mean_n_consult_time)
+            sampled_nurse_act_time = self.nurse_consult_time_dist.sample()
 
             # Freeze this function in place for the activity time we sampled
             # above.  This is the patient spending time with the nurse.
@@ -1044,7 +1240,8 @@ class Model:
             # Randomly sample the mean ct time, as with above this may need to
             # be updated to a log normal distribution
 
-            sampled_ctp_act_time = random.expovariate(1.0 / g.mean_n_ct_time)
+            # sampled_ctp_act_time = random.expovariate(1.0 / g.mean_n_ct_time)
+            sampled_ctp_act_time = self.ct_time_dist.sample()
             patient.ctp_duration = sampled_ctp_act_time
             # Freeze this function in place for the activity time that was
             # sampled above.
@@ -1082,7 +1279,8 @@ class Model:
 
             # TODO: SR: Confirm if ct act time should still pass in this instance
             # TODO: SR: Is a standard CT scan performed when CT perfusion scanner not available?
-            sampled_ct_act_time = random.expovariate(1.0 / g.mean_n_ct_time)
+            # sampled_ct_act_time = random.expovariate(1.0 / g.mean_n_ct_time)
+            sampled_ct_act_time = self.ct_time_dist.sample()
             patient.ct_duration = sampled_ct_act_time
 
             yield self.env.timeout(sampled_ct_act_time)
@@ -1201,9 +1399,15 @@ class Model:
                 # This code applies a non stroke admission avoidance variable to the
                 # patient.
 
-                self.tia_admission_chance = random.normalvariate(g.tia_admission, 1)
-                self.stroke_mimic_admission_chance = random.normalvariate(
-                    g.stroke_mimic_admission, 1
+                # self.tia_admission_chance = random.normalvariate(g.tia_admission, 1)
+                self.tia_admission_chance = (
+                    self.tia_admission_chance_distribution.sample()
+                )
+                # self.stroke_mimic_admission_chance = random.normalvariate(
+                #     g.stroke_mimic_admission, 1
+                # )
+                self.stroke_mimic_admission_chance = (
+                    self.stroke_mimic_admission_chance_distribution.sample()
                 )
 
                 if (
@@ -1219,7 +1423,8 @@ class Model:
                     patient.admission_avoidance = True
 
                 # Calculate SDEC stay time from exponential
-                sampled_sdec_stay_time = random.expovariate(1.0 / g.mean_n_sdec_time)
+                # sampled_sdec_stay_time = random.expovariate(1.0 / g.mean_n_sdec_time)
+                sampled_sdec_stay_time = self.sdec_time_dist.sample()
 
                 # Add patient SDEC LOS to their patient object
                 patient.sdec_los = sampled_sdec_stay_time
@@ -1316,9 +1521,13 @@ class Model:
         # This code introduces a small element of randomness into the admission
         # rates for the non stroke, tia and stroke mimic patients.
 
-        self.tia_admission_chance = random.normalvariate(g.tia_admission, 1)
-        self.stroke_mimic_admission_chance = random.normalvariate(
-            g.stroke_mimic_admission, 1
+        # self.tia_admission_chance = random.normalvariate(g.tia_admission, 1)
+        self.tia_admission_chance = self.tia_admission_chance_distribution.sample()
+        # self.stroke_mimic_admission_chance = random.normalvariate(
+        #     g.stroke_mimic_admission, 1
+        # )
+        self.stroke_mimic_admission_chance = (
+            self.stroke_mimic_admission_chance_distribution.sample()
         )
 
         # This code exists after the admission avoidance code so they are not
@@ -1350,6 +1559,13 @@ class Model:
         # have a True admission avoidance attribute. For all the patients that
         # remain false, the below code will run simulating the admission to the
         # ward.
+
+        # TODO: sampled ward activity time is done after a bed is obtained.
+        # TODO: this is what is recorded as LOS within the model, but arguably the 'TRUE' LOS is
+        # therefore longer in the model as
+        # or is LOS in these cases sampled from stroke ward LOS only?
+        # is LOS increased by spending time on an 'inappropriate' ward in the real world, and if so,
+        # does this need to be reflected here?
 
         if patient.admission_avoidance != True:
             # These code assigns a time to the start q variable. In stroke care
@@ -1407,9 +1623,10 @@ class Model:
                 ###############################
 
                 if patient.patient_diagnosis == 0 and patient.mrs_type == 0:
-                    sampled_ward_act_time = random.expovariate(
-                        1.0 / g.mean_n_ich_ward_time_mrs_0
-                    )
+                    # sampled_ward_act_time = random.expovariate(
+                    #     1.0 / g.mean_n_ich_ward_time_mrs_0
+                    # )
+                    sampled_ward_act_time = self.ich_ward_time_mrs_0_dist.sample()
                     patient.mrs_discharge = patient.mrs_type
                     trace(
                         time=self.env.now,
@@ -1424,10 +1641,14 @@ class Model:
                     self.ward_occupancy.remove(patient)
 
                 elif patient.patient_diagnosis == 0 and patient.mrs_type == 1:
-                    sampled_ward_act_time = random.expovariate(
-                        1.0 / g.mean_n_ich_ward_time_mrs_1
+                    # sampled_ward_act_time = random.expovariate(
+                    #     1.0 / g.mean_n_ich_ward_time_mrs_1
+                    # )
+                    sampled_ward_act_time = self.ich_ward_time_mrs_1_dist.sample()
+                    # patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                    patient.mrs_discharge = (
+                        patient.mrs_type - self.mrs_reduction_during_stay.sample()
                     )
-                    patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
                     trace(
                         time=self.env.now,
                         debug=g.show_trace,
@@ -1441,10 +1662,14 @@ class Model:
                     self.ward_occupancy.remove(patient)
 
                 elif patient.patient_diagnosis == 0 and patient.mrs_type == 2:
-                    sampled_ward_act_time = random.expovariate(
-                        1.0 / g.mean_n_ich_ward_time_mrs_2
+                    # sampled_ward_act_time = random.expovariate(
+                    #     1.0 / g.mean_n_ich_ward_time_mrs_2
+                    # )
+                    sampled_ward_act_time = self.ich_ward_time_mrs_2_dist.sample()
+                    # patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                    patient.mrs_discharge = (
+                        patient.mrs_type - self.mrs_reduction_during_stay.sample()
                     )
-                    patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
                     trace(
                         time=self.env.now,
                         debug=g.show_trace,
@@ -1458,10 +1683,14 @@ class Model:
                     self.ward_occupancy.remove(patient)
 
                 elif patient.patient_diagnosis == 0 and patient.mrs_type == 3:
-                    sampled_ward_act_time = random.expovariate(
-                        1.0 / g.mean_n_ich_ward_time_mrs_3
+                    # sampled_ward_act_time = random.expovariate(
+                    #     1.0 / g.mean_n_ich_ward_time_mrs_3
+                    # )
+                    sampled_ward_act_time = self.ich_ward_time_mrs_3_dist.sample()
+                    # patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                    patient.mrs_discharge = (
+                        patient.mrs_type - self.mrs_reduction_during_stay.sample()
                     )
-                    patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
                     trace(
                         time=self.env.now,
                         debug=g.show_trace,
@@ -1475,10 +1704,14 @@ class Model:
                     self.ward_occupancy.remove(patient)
 
                 elif patient.patient_diagnosis == 0 and patient.mrs_type == 4:
-                    sampled_ward_act_time = random.expovariate(
-                        1.0 / g.mean_n_ich_ward_time_mrs_4
+                    # sampled_ward_act_time = random.expovariate(
+                    #     1.0 / g.mean_n_ich_ward_time_mrs_4
+                    # )
+                    sampled_ward_act_time = self.ich_ward_time_mrs_4_dist.sample()
+                    # patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                    patient.mrs_discharge = (
+                        patient.mrs_type - self.mrs_reduction_during_stay.sample()
                     )
-                    patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
                     trace(
                         time=self.env.now,
                         debug=g.show_trace,
@@ -1492,10 +1725,14 @@ class Model:
                     self.ward_occupancy.remove(patient)
 
                 elif patient.patient_diagnosis == 0 and patient.mrs_type == 5:
-                    sampled_ward_act_time = random.expovariate(
-                        1.0 / g.mean_n_ich_ward_time_mrs_5
+                    # sampled_ward_act_time = random.expovariate(
+                    #     1.0 / g.mean_n_ich_ward_time_mrs_5
+                    # )
+                    sampled_ward_act_time = self.ich_ward_time_mrs_5_dist.sample()
+                    # patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                    patient.mrs_discharge = (
+                        patient.mrs_type - self.mrs_reduction_during_stay.sample()
                     )
-                    patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
                     trace(
                         time=self.env.now,
                         debug=g.show_trace,
@@ -1521,9 +1758,10 @@ class Model:
                 # LOS and associated savings accordingly.
 
                 if patient.patient_diagnosis == 1 and patient.mrs_type == 0:
-                    sampled_ward_act_time = random.expovariate(
-                        1.0 / g.mean_n_i_ward_time_mrs_0
-                    )
+                    # sampled_ward_act_time = random.expovariate(
+                    #     1.0 / g.mean_n_i_ward_time_mrs_0
+                    # )
+                    sampled_ward_act_time = self.i_ward_time_mrs_0_dist.sample()
                     patient.mrs_discharge = patient.mrs_type
                     trace(
                         time=self.env.now,
@@ -1538,14 +1776,18 @@ class Model:
                     self.ward_occupancy.remove(patient)
 
                 elif patient.patient_diagnosis == 1 and patient.mrs_type == 1:
-                    sampled_ward_act_time = random.expovariate(
-                        1.0 / g.mean_n_i_ward_time_mrs_1
-                    )
+                    # sampled_ward_act_time = random.expovariate(
+                    #     1.0 / g.mean_n_i_ward_time_mrs_1
+                    # )
+                    sampled_ward_act_time = self.i_ward_time_mrs_1_dist.sample()
                     if patient.thrombolysis == True:
                         sampled_ward_act_time_thrombolysis = (
                             sampled_ward_act_time * g.thrombolysis_los_save
                         )
-                        patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                        # patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                        patient.mrs_discharge = (
+                            patient.mrs_type - self.mrs_reduction_during_stay.sample()
+                        )
                         trace(
                             time=self.env.now,
                             debug=g.show_trace,
@@ -1574,7 +1816,10 @@ class Model:
                         patient.ward_discharge_time = self.env.now
                         self.ward_occupancy.remove(patient)
                     else:
-                        patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                        # patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                        patient.mrs_discharge = (
+                            patient.mrs_type - self.mrs_reduction_during_stay.sample()
+                        )
                         trace(
                             time=self.env.now,
                             debug=g.show_trace,
@@ -1588,14 +1833,19 @@ class Model:
                         self.ward_occupancy.remove(patient)
 
                 elif patient.patient_diagnosis == 1 and patient.mrs_type == 2:
-                    sampled_ward_act_time = random.expovariate(
-                        1.0 / g.mean_n_i_ward_time_mrs_2
-                    )
+                    # sampled_ward_act_time = random.expovariate(
+                    #     1.0 / g.mean_n_i_ward_time_mrs_2
+                    # )
+                    sampled_ward_act_time = self.i_ward_time_mrs_2_dist.sample()
                     if patient.thrombolysis == True:
                         sampled_ward_act_time_thrombolysis = (
                             sampled_ward_act_time * g.thrombolysis_los_save
                         )
-                        patient.mrs_discharge = patient.mrs_type - random.randint(0, 2)
+                        # patient.mrs_discharge = patient.mrs_type - random.randint(0, 2)
+                        patient.mrs_discharge = (
+                            patient.mrs_type
+                            - self.mrs_reduction_during_stay_thrombolysed.sample()
+                        )
                         trace(
                             time=self.env.now,
                             debug=g.show_trace,
@@ -1624,7 +1874,10 @@ class Model:
                         patient.ward_discharge_time = self.env.now
                         self.ward_occupancy.remove(patient)
                     else:
-                        patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                        # patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                        patient.mrs_discharge = (
+                            patient.mrs_type - self.mrs_reduction_during_stay.sample()
+                        )
                         trace(
                             time=self.env.now,
                             debug=g.show_trace,
@@ -1638,14 +1891,19 @@ class Model:
                         self.ward_occupancy.remove(patient)
 
                 elif patient.patient_diagnosis == 1 and patient.mrs_type == 3:
-                    sampled_ward_act_time = random.expovariate(
-                        1.0 / g.mean_n_i_ward_time_mrs_3
-                    )
+                    # sampled_ward_act_time = random.expovariate(
+                    #     1.0 / g.mean_n_i_ward_time_mrs_3
+                    # )
+                    sampled_ward_act_time = self.i_ward_time_mrs_3_dist.sample()
                     if patient.thrombolysis == True:
                         sampled_ward_act_time_thrombolysis = (
                             sampled_ward_act_time * g.thrombolysis_los_save
                         )
-                        patient.mrs_discharge = patient.mrs_type - random.randint(0, 2)
+                        # patient.mrs_discharge = patient.mrs_type - random.randint(0, 2)
+                        patient.mrs_discharge = (
+                            patient.mrs_type
+                            - self.mrs_reduction_during_stay_thrombolysed.sample()
+                        )
                         trace(
                             time=self.env.now,
                             debug=g.show_trace,
@@ -1674,7 +1932,10 @@ class Model:
                         patient.ward_discharge_time = self.env.now
                         self.ward_occupancy.remove(patient)
                     else:
-                        patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                        # patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                        patient.mrs_discharge = (
+                            patient.mrs_type - self.mrs_reduction_during_stay.sample()
+                        )
                         trace(
                             time=self.env.now,
                             debug=g.show_trace,
@@ -1688,14 +1949,19 @@ class Model:
                         self.ward_occupancy.remove(patient)
 
                 elif patient.patient_diagnosis == 1 and patient.mrs_type == 4:
-                    sampled_ward_act_time = random.expovariate(
-                        1.0 / g.mean_n_i_ward_time_mrs_4
-                    )
+                    # sampled_ward_act_time = random.expovariate(
+                    #     1.0 / g.mean_n_i_ward_time_mrs_4
+                    # )
+                    sampled_ward_act_time = self.i_ward_time_mrs_4_dist.sample()
                     if patient.thrombolysis == True:
                         sampled_ward_act_time_thrombolysis = (
                             sampled_ward_act_time * g.thrombolysis_los_save
                         )
-                        patient.mrs_discharge = patient.mrs_type - random.randint(0, 2)
+                        # patient.mrs_discharge = patient.mrs_type - random.randint(0, 2)
+                        patient.mrs_discharge = (
+                            patient.mrs_type
+                            - self.mrs_reduction_during_stay_thrombolysed.sample()
+                        )
                         trace(
                             time=self.env.now,
                             debug=g.show_trace,
@@ -1724,7 +1990,10 @@ class Model:
                         patient.ward_discharge_time = self.env.now
                         self.ward_occupancy.remove(patient)
                     else:
-                        patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                        # patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                        patient.mrs_discharge = (
+                            patient.mrs_type - self.mrs_reduction_during_stay.sample()
+                        )
                         trace(
                             time=self.env.now,
                             debug=g.show_trace,
@@ -1738,14 +2007,19 @@ class Model:
                         self.ward_occupancy.remove(patient)
 
                 elif patient.patient_diagnosis == 1 and patient.mrs_type == 5:
-                    sampled_ward_act_time = random.expovariate(
-                        1.0 / g.mean_n_i_ward_time_mrs_5
-                    )
+                    # sampled_ward_act_time = random.expovariate(
+                    #     1.0 / g.mean_n_i_ward_time_mrs_5
+                    # )
+                    sampled_ward_act_time = self.i_ward_time_mrs_5_dist.sample()
                     if patient.thrombolysis == True:
                         sampled_ward_act_time_thrombolysis = (
                             sampled_ward_act_time * g.thrombolysis_los_save
                         )
-                        patient.mrs_discharge = patient.mrs_type - random.randint(0, 2)
+                        # patient.mrs_discharge = patient.mrs_type - random.randint(0, 2)
+                        patient.mrs_discharge = (
+                            patient.mrs_type
+                            - self.mrs_reduction_during_stay_thrombolysed.sample()
+                        )
                         trace(
                             time=self.env.now,
                             debug=g.show_trace,
@@ -1775,7 +2049,10 @@ class Model:
                         patient.ward_discharge_time = self.env.now
                         self.ward_occupancy.remove(patient)
                     else:
-                        patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                        # patient.mrs_discharge = patient.mrs_type - random.randint(0, 1)
+                        patient.mrs_discharge = (
+                            patient.mrs_type - self.mrs_reduction_during_stay.sample()
+                        )
                         trace(
                             time=self.env.now,
                             debug=g.show_trace,
@@ -1797,9 +2074,10 @@ class Model:
                 # The below code is for the non stroke diagnosis.
 
                 if patient.patient_diagnosis == 2:
-                    sampled_ward_act_time = random.expovariate(
-                        1.0 / g.mean_n_tia_ward_time
-                    )
+                    # sampled_ward_act_time = random.expovariate(
+                    #     1.0 / g.mean_n_tia_ward_time
+                    # )
+                    sampled_ward_act_time = self.tia_ward_time_dist.sample()
                     trace(
                         time=self.env.now,
                         debug=g.show_trace,
@@ -1818,9 +2096,10 @@ class Model:
                 # Stroke mimic OR non-stroke  #
                 ###############################
                 if patient.patient_diagnosis > 2:
-                    sampled_ward_act_time = random.expovariate(
-                        1.0 / g.mean_n_non_stroke_ward_time
-                    )
+                    # sampled_ward_act_time = random.expovariate(
+                    #     1.0 / g.mean_n_non_stroke_ward_time
+                    # )
+                    sampled_ward_act_time = self.non_stroke_ward_time_dist.sample()
 
                     trace(
                         time=self.env.now,
