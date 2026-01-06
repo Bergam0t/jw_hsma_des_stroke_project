@@ -40,4 +40,6 @@ nav:
     - Patient: patient.md
     - Model: model.md
     - Trial: trial.md
+  - Model Details:
+    - STRESS DES Checklist: stress_des.md
   - Changelog: CHANGELOG.md

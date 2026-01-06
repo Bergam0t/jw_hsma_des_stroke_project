@@ -25,7 +25,15 @@ jobs:
           path: ~/.cache
           restore-keys: |
             mkdocs-material-
-      - run: pip install mkdocs-material==9.7.0
-      - run: pip install mkdocstrings[python]
-      - run: pip install -e .
-      - run: mkdocs gh-deploy --force
+      - name: Install Environment Requirements
+        run: |
+          pip install mkdocs-material==9.7.0
+          pip install mkdocstrings[python]
+          pip install pandas==2.1.1
+          pip install tabulate==0.9.0
+          pip install openpyxl==3.1.5
+          pip install -e .
+      - name: Generate Markdown from Excel
+        run: python docs/scripts/stress_des_to_md.py
+      - name: Deploy MkDocs
+        run: mkdocs gh-deploy --force

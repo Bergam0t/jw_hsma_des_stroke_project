@@ -11,3 +11,4 @@ all_trial_results.csv
 stroke_ward_model.egg-info
 .venv
 *.pyc
+checklists/~$stress_des.xlsx
