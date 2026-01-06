@@ -1,4 +1,4 @@
-site_name: My Docs
+site_name: Stroke Unit DES
 site_url: https://sammirosser.com/jw_hsma_des_stroke_project
 repo_url: https://github.com/Bergam0t/jw_hsma_des_stroke_project
 
@@ -10,8 +10,11 @@ theme:
     - search.share
     - content.code.copy
     - content.code.select
+    - navigation.top
   palette:
     primary: blue
+  icon:
+    repo: fontawesome/brands/github
 
 plugins:
   - search
@@ -35,6 +38,9 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Running the Model:
+    - Try the Model Online: app.md
+    - Run the Model Locally: running_locally.md
   - Model Classes:
     - g: g.md
     - Patient: patient.md

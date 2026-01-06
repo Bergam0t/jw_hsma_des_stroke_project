@@ -19,7 +19,7 @@ markdown_table = df[["Section/Subsection", "Item", "Details"]].to_markdown(index
 # Optional header / intro text
 content = f"""# Stress DES Checklist
 
-This table is auto-generated from `{excel_path.name}`.
+This table is auto-generated from `checklists/{excel_path.name}`.
 
 {markdown_table}
 """
