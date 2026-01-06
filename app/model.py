@@ -184,6 +184,17 @@ with st.sidebar:
 
     g.show_trace = debug_console
 
+    master_seed = st.number_input(
+        "Set the master seed",
+        value=42,
+        min_value=1,
+        max_value=None,
+        step=1,
+        help="This parameter affects the random numbers used",
+    )
+
+    g.master_seed = master_seed
+
 button_run_pressed = st.button("Run simulation")
 
 if button_run_pressed:
