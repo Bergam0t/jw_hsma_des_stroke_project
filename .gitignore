@@ -12,3 +12,5 @@ stroke_ward_model.egg-info
 .venv
 *.pyc
 checklists/~$stress_des.xlsx
+tests/exp_results/df_patient_log_test_comparison.parquet
+tests/exp_results/df_trial_results_test_comparison.parquet
