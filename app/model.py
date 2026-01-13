@@ -2,8 +2,13 @@ from stroke_ward_model.stroke_admission_classes import g, Trial
 import streamlit as st
 import plotly.express as px
 from app_utils import iconMetricContainer
+from convert_event_log import convert_event_log, create_vidigi_animation_advanced
+from vidigi.process_mapping import add_sim_timestamp, discover_dfg, dfg_to_graphviz
+from streamlit_image_zoom import image_zoom
+from PIL import Image
+import io
 
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 
 st.logo("app/resources/nhs-logo-colour.png", size="large")
 
@@ -213,11 +218,12 @@ if button_run_pressed:
 
         # st.write(my_trial.trial_info)
 
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
             [
                 "Overview",
                 "Output Graphs",
                 "Animation",
+                "Process Maps",
                 "Scenario Comparison",
                 "Model Exploration",
             ]
@@ -314,6 +320,27 @@ if button_run_pressed:
                     )
 
             with col2:
+                patient_diagnosis_by_stroke_type_count = (
+                    my_trial.trial_patient_df.groupby(["run", "patient_diagnosis_type"])
+                    .size()
+                    .groupby("patient_diagnosis_type")
+                    .mean()
+                    .reset_index(name="mean_patients_per_run")
+                )
+
+                patient_diagnosis_by_stroke_type_count_per_year = (
+                    patient_diagnosis_by_stroke_type_count.copy()
+                )
+
+                patient_diagnosis_by_stroke_type_count["mean_patients_per_run"] = (
+                    patient_diagnosis_by_stroke_type_count["mean_patients_per_run"]
+                    / (g.sim_duration / 60 / 24)
+                    * 365
+                )
+
+                st.write(patient_diagnosis_by_stroke_type_count_per_year)
+
+            with col3:
                 with iconMetricContainer(
                     key="patients_per_day",
                     icon_unicode="e878",
@@ -326,6 +353,21 @@ if button_run_pressed:
                         value=f"{(average_patients_per_year / 365):.0f}",
                         border=True,
                     )
+
+            with col4:
+                patient_diagnosis_by_stroke_type_count_per_day = (
+                    patient_diagnosis_by_stroke_type_count_per_year.copy()
+                )
+
+                patient_diagnosis_by_stroke_type_count_per_day[
+                    "mean_patients_per_run"
+                ] = (
+                    patient_diagnosis_by_stroke_type_count_per_day[
+                        "mean_patients_per_run"
+                    ]
+                    / 365
+                )
+                st.write(patient_diagnosis_by_stroke_type_count_per_day)
 
             st.divider()
 
@@ -495,7 +537,40 @@ if button_run_pressed:
                 .mean()
             )
 
-        with tab5:
+        with tab3:
+            event_log = convert_event_log(my_trial.trial_patient_df)
+
+            # st.write("Event Log")
+            # st.write(event_log)
+            # st.plotly_chart(create_vidigi_animation_advanced(event_log, scenario=g()))
+
+            st.write(create_vidigi_animation_advanced(event_log, scenario=g()))
+
+        with tab4:
+            event_log["event"] = event_log["event"].apply(
+                lambda x: x.replace("_time", "").replace("_", " ")
+            )
+            event_log_timestamp = add_sim_timestamp(event_log)
+            nodes, edges = discover_dfg(event_log_timestamp, case_col="id")
+
+            image_zoom(
+                Image.open(
+                    io.BytesIO(
+                        dfg_to_graphviz(
+                            nodes,
+                            edges,
+                            return_image=True,
+                            size=[10, 5],
+                            dpi=600,
+                            direction="LR",
+                        )
+                    )
+                ),
+                size=(800, 400),
+                keep_resolution=True,
+            )
+
+        with tab6:
 
             @st.fragment
             def plot_histogram():
@@ -549,34 +624,49 @@ if button_run_pressed:
                     if k in patient_level_metric_choices
                 ]
 
-                selected_color_var = st.selectbox(
-                    "Select a metric to color the values by",
+                selected_facet_var = st.selectbox(
+                    "Select a metric to facet the values by",
                     options=[None] + list(split_vars.keys()),
                 )
 
-                if selected_color_var is not None:
-                    selected_color_value = split_vars[selected_color_var]
-                else:
-                    selected_color_var = None
+                normalise_los_to_days = st.toggle("Change LOS from Minutes to Days?")
 
-                if selected_color_var is not None:
+                if selected_facet_var is not None:
+                    selected_facet_value = split_vars[selected_facet_var]
+                else:
+                    selected_facet_value = None
+
+                if selected_facet_var is not None:
+                    df = (
+                        my_trial.trial_patient_df[
+                            [selected_facet_value] + selected_values
+                        ]
+                        .melt(id_vars=["id", "run", selected_facet_value])
+                        .copy()
+                    )
+                    if normalise_los_to_days:
+                        df["value"] = df["value"] / 60 / 24
                     st.plotly_chart(
                         px.histogram(
-                            data_frame=my_trial.trial_patient_df[
-                                [selected_color_value] + selected_values
-                            ].melt(id_vars=["id", "run", selected_color_value]),
+                            data_frame=df,
                             x="value",
-                            facet_row=selected_color_value,
+                            facet_row=selected_facet_value,
                             facet_col="variable",
+                            height=200 * len(selected_facet_var),
                         )
                     )
 
                 else:
+                    df = (
+                        my_trial.trial_patient_df[selected_values]
+                        .melt(id_vars=["id", "run"])
+                        .copy()
+                    )
+                    if normalise_los_to_days:
+                        df["value"] = df["value"] / 60 / 24
                     st.plotly_chart(
                         px.histogram(
-                            data_frame=my_trial.trial_patient_df[selected_values].melt(
-                                id_vars=["id", "run"]
-                            ),
+                            data_frame=df,
                             x="value",
                             facet_col="variable",
                         )
