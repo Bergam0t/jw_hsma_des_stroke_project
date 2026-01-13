@@ -16,16 +16,19 @@ with st.sidebar:
     st.subheader("Stroke Ward Configuration")
 
     number_of_ward_beds = st.slider(
-        "Choose the number of beds available in the ward", 1, 100, 49
+        "Choose the number of beds available in the ward", 10, 100, 49
     )
     g.number_of_ward_beds = number_of_ward_beds
 
     number_of_sdec_beds = st.slider(
-        "Choose the number of beds available in the SDEC", 1, 20, 5
+        "Choose the number of beds available in the SDEC", 0, 20, 5
     )
     g.sdec_beds = number_of_sdec_beds
 
-    therapy_sdec = st.toggle("Should the SDEC run with full therapy support?")
+    therapy_sdec = st.toggle(
+        "Toggle whether the SDEC will run with full therapy support",
+        help="Off = no therapy support. If therapy support enabled, patients with a higher level of disability will be eligible for admission avoidance via SDEC (maximum MRS of 3 rather than 2 without therapy).",
+    )
     g.therapy_sdec = therapy_sdec
 
     st.divider()
@@ -153,7 +156,7 @@ with st.sidebar:
 
     st.divider()
 
-    st.subheader("Model Parameters")
+    st.subheader("Model Parameters (ADVANCED)")
 
     number_of_runs = st.number_input(
         "Number of Runs", min_value=1, max_value=100, value=10
