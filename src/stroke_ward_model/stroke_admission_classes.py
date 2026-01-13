@@ -253,7 +253,7 @@ class g:
     patient_arrival_gen_1 = False
     patient_arrival_gen_2 = False
 
-    show_trace = True
+    show_trace = False
     tracked_cases = list(range(1, 50))
     trace_config = {"tracked": tracked_cases}
 
