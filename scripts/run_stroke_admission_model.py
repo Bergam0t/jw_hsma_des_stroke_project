@@ -1,5 +1,11 @@
 import pandas as pd
-from model_code.stroke_admission_classes import g, Trial
+from stroke_ward_model.inputs import g
+from stroke_ward_model.trial import Trial
+
+g.sdec_opening_hour = 8
+g.ctp_opening_hour = 9
+g.in_hours_start = 8
+g.ooh_start = 0
 
 # This code asks the user if they want to generate cvs per run
 csv_input = False
@@ -32,7 +38,6 @@ while graph_input == False:
 
 for x in range(3):
     # Code to ask the user how many beds are active on the unit.
-
     user_ward_beds = False
 
     while user_ward_beds == False:
@@ -136,6 +141,7 @@ combined_results = {
         "Thrombolysis Savings (£)": g.trial_thrombolysis_savings.get(trial, None),
         "Total Savings (£)": g.trial_total_savings.get(trial, None),
         "Mean MRS Change": g.trial_mrs_change.get(trial, None),
+        "Mean Patients Generated in Run": g.trial_avg_patients.get(trial, None)
     }
     for trial in trial_numbers
 }
@@ -144,4 +150,4 @@ df_all_trial_results = pd.DataFrame.from_dict(combined_results, orient="index")
 df_all_trial_results.index.name = "Trial Number"
 
 if g.write_to_csv == True:
-    df_all_trial_results.to_csv("all_trial_results.csv", index=False)
+    df_all_trial_results.to_csv("experiments/all_trial_results.csv", index=False)
