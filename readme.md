@@ -20,14 +20,12 @@ This model is parameterised using data from
 
 ## Environment setup
 
-Install environment using requirements.txt
+Install environment using requirements.txt or environment.yml, found in the **environment** folder.
 
 This should automatically install the model code.
-However, if you receive errors about `stroke_ward_model` not being found, run `python install . -e` while in the environment you created to install the model code.
+However, if you receive errors about `stroke_ward_model` not being found, run `pip install . -e` while in the environment you created to install the model code.
 
-This environment has been tested with Python 3.12.10
-
-Note that at present legacy environments are also available in win_environment and mac_environment. It is recommended that you use requirements.txt and the method above.
+The requirements.txt environment has been tested with Python 3.12.10
 
 ## Web App
 
