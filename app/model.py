@@ -265,6 +265,11 @@ if button_run_pressed:
         # Call the run_trial method of our Trial object
         my_trial.run_trial()
 
+        # Filter out any patients who were generated before the warm-up period elapsed
+        patient_df = my_trial.trial_patient_df[
+            my_trial.trial_patient_df["generated_during_warm_up"] == False
+        ]
+
         sim_duration_days = g.sim_duration / 60 / 24
         sim_duration_years = sim_duration_days / 365
 
@@ -281,6 +286,9 @@ if button_run_pressed:
             ]
         )
 
+        ############################
+        # MARK: Summary statistics #
+        ############################
         with tab1:
             st.subheader("Configuration")
 
@@ -303,6 +311,7 @@ if button_run_pressed:
                     st.caption(
                         f"Available from {g.ctp_opening_hour} until {g.ctp_opening_hour + (((24 * 60) - g.ctp_unav_time) / 60)} ({(((24 * 60) - g.ctp_unav_time) / 60):.1f} hours)"
                     )
+
             with col2:
                 with iconMetricContainer(
                     key="sdec_beds",
@@ -335,6 +344,9 @@ if button_run_pressed:
                         border=True,
                     )
 
+                    # Blank lines for spacing
+                    st.caption("")
+
             with col4:
                 with iconMetricContainer(
                     key="ward_bed_count",
@@ -349,8 +361,11 @@ if button_run_pressed:
                         border=True,
                     )
 
+                    # Blank lines for spacing
+                    st.caption("")
+
             average_patients_per_run = (
-                my_trial.trial_patient_df.groupby("run").count().mean().values[0]
+                patient_df.groupby("run").count().mean().values[0]
             )
 
             average_patients_per_year = (
@@ -373,11 +388,27 @@ if button_run_pressed:
 
             with col2:
                 patient_diagnosis_by_stroke_type_count = (
-                    my_trial.trial_patient_df.groupby(["run", "patient_diagnosis_type"])
+                    patient_df.groupby(["run", "patient_diagnosis_type"])
                     .size()
                     .groupby("patient_diagnosis_type")
                     .mean()
                     .reset_index(name="mean_patients_per_run")
+                )
+
+                patient_diagnosis_by_stroke_type_count["patient_diagnosis_type"] = (
+                    pd.Categorical(
+                        patient_diagnosis_by_stroke_type_count[
+                            "patient_diagnosis_type"
+                        ],
+                        categories=["ICH", "I", "TIA", "Stroke Mimic", "Non Stroke"],
+                        ordered=True,
+                    )
+                )
+
+                patient_diagnosis_by_stroke_type_count = (
+                    patient_diagnosis_by_stroke_type_count.sort_values(
+                        "patient_diagnosis_type"
+                    )
                 )
 
                 patient_diagnosis_by_stroke_type_count_per_year = (
@@ -390,7 +421,15 @@ if button_run_pressed:
                     * 365
                 )
 
-                st.write(patient_diagnosis_by_stroke_type_count_per_year)
+                st.dataframe(
+                    patient_diagnosis_by_stroke_type_count_per_year.rename(
+                        columns={
+                            "patient_diagnosis_type": "Diagnosis",
+                            "mean_patients_per_run": "Count",
+                        }
+                    ),
+                    hide_index=True,
+                )
 
             with col3:
                 with iconMetricContainer(
@@ -419,7 +458,15 @@ if button_run_pressed:
                     ]
                     / 365
                 )
-                st.write(patient_diagnosis_by_stroke_type_count_per_day)
+                st.dataframe(
+                    patient_diagnosis_by_stroke_type_count_per_day.rename(
+                        columns={
+                            "patient_diagnosis_type": "Diagnosis",
+                            "mean_patients_per_run": "Count",
+                        }
+                    ).round(2),
+                    hide_index=True,
+                )
 
             st.divider()
 
@@ -539,15 +586,93 @@ if button_run_pressed:
                         f"On average, {my_trial.df_trial_results['Number of Admission Delays'].mean():,.0f} admissions were delayed across the full model run of {(g.sim_duration / 60 / 24):.0f} days"
                     )
 
-            st.subheader("Full Per-Run Results")
+            col1c, col2c = st.columns(2)
 
-            st.dataframe(my_trial.df_trial_results.T)
+            with col1c:
+                with iconMetricContainer(
+                    key="admission_delay_average",
+                    icon_unicode="f38c",
+                    family="outline",
+                    icon_color="black",
+                    type="symbols",
+                ):
+                    st.metric(
+                        label="Average Ward Admission Delay Duration",
+                        value=f"{g.trial_mean_q_time_ward[g.trials_run_counter]} hours",
+                        border=True,
+                    )
 
-            st.subheader("Full Per-Patient Results")
+            with col2c:
+                with iconMetricContainer(
+                    key="admission_delay_max",
+                    icon_unicode="f38c",
+                    family="outline",
+                    icon_color="black",
+                    type="symbols",
+                ):
+                    st.metric(
+                        label="Maximum Ward Admission Delay Duration",
+                        value=f"{g.trial_max_q_time_ward[g.trials_run_counter]} hours",
+                        border=True,
+                    )
 
-            st.dataframe(my_trial.trial_patient_df)
+                st.caption("This looks at the maximum delay seen across all model runs")
+
+            col1d, col2d = st.columns(2)
+
+            with col1d:
+                with iconMetricContainer(
+                    key="nurse_delay_average",
+                    icon_unicode="f38c",
+                    family="outline",
+                    icon_color="black",
+                    type="symbols",
+                ):
+                    st.metric(
+                        label="Average Nurse Triage Delay Duration",
+                        value=f"{g.trial_mean_q_time_nurse[g.trials_run_counter]} minutes",
+                        border=True,
+                    )
+
+            with col2d:
+                with iconMetricContainer(
+                    key="nurse_delay_max",
+                    icon_unicode="f38c",
+                    family="outline",
+                    icon_color="black",
+                    type="symbols",
+                ):
+                    st.metric(
+                        label="Maximum Nurse Triage Delay Duration",
+                        value=f"{g.trial_max_q_time_nurse[g.trials_run_counter]} minutes",
+                        border=True,
+                    )
+
+                st.caption("This looks at the maximum delay seen across all model runs")
 
         with tab2:
+            st.subheader("Ward Occupancy Over Time")
+
+            plot_occupancy(
+                occupancy_df=my_trial.occupancy_df,
+                total_sim_duration_days=warm_up_duration_days + sim_duration_days,
+                warm_up_duration_days=warm_up_duration_days,
+                plot_confidence_intervals=True,
+            )
+
+            with st.expander("Click to view detailed result tables"):
+                st.subheader("Full Per-Run Results for Trial")
+
+                st.dataframe(my_trial.df_trial_results.T)
+
+                st.subheader("Full Per-Patient Results for Trial (Including Warm-Up)")
+
+                st.dataframe(my_trial.trial_patient_df)
+
+                st.subheader("Ward Occupancy Audits")
+
+                st.dataframe(my_trial.occupancy_df)
+
         #########################
         # MARK: Animation       #
         #########################
@@ -670,6 +795,13 @@ if button_run_pressed:
             st.write("Coming Soon")
 
         with tab6:
+            plot_occupancy(
+                occupancy_df=my_trial.occupancy_df,
+                total_sim_duration_days=warm_up_duration_days + sim_duration_days,
+                warm_up_duration_days=warm_up_duration_days,
+                plot_confidence_intervals=False,
+            )
+
             ####################################
             # MARK: Flexible Plot of Variables #
             ####################################
