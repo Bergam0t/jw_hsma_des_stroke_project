@@ -2,10 +2,10 @@ import pandas as pd
 from vidigi.prep import reshape_for_animations, generate_animation_df
 from vidigi.animation import (
     generate_animation,
-    animate_activity_log,
     add_repeating_overlay,
 )
 from vidigi.utils import EventPosition, create_event_position_df
+import time
 
 EVENT_POSITION_DF = create_event_position_df(
     [
@@ -170,60 +170,54 @@ def convert_event_log(patient_df, run=1):
     return event_log
 
 
-def create_vidigi_animation_simple(
-    event_log,
-    scenario,
-    limit_duration=60 * 24 * 7 * 16,  # Default = 16 weeks
-    event_position_df=EVENT_POSITION_DF,
-):
-    return animate_activity_log(
-        event_log=event_log,
-        event_position_df=event_position_df,
-        entity_col_name="id",
-        scenario=scenario,
-        debug_mode=True,
-        setup_mode=False,
-        every_x_time_units=30,
-        include_play_button=True,
-        resource_icon_size=15,
-        text_size=20,
-        entity_icon_size=13,
-        gap_between_entities=6,
-        gap_between_queue_rows=25,
-        gap_between_resource_rows=25,
-        plotly_height=900,
-        frame_duration=200,
-        plotly_width=1200,
-        override_x_max=800,
-        override_y_max=900,
-        limit_duration=limit_duration,
-        wrap_queues_at=25,
-        step_snapshot_max=125,
-        time_display_units="dhm_ampm",
-        display_stage_labels=True,
-    )
-
-
-def create_vidigi_animation_advanced(
+def create_vidigi_animation(
     event_log,
     scenario,
     event_position_df=EVENT_POSITION_DF,
-    snapshot_interval=30,
+    snapshot_interval=20,
     step_snapshot_max=100,
     entity_col_name="id",
     gap_between_resource_rows=50,
     gap_between_resources=20,
 ):
+    if "run" in event_log.columns:
+        if event_log["run"].nunique() > 1:
+            raise ValueError(
+                f"'run' column has {event_log['run'].nunique()} unique values; "
+                f"please pass in a filtered event log with only one run"
+            )
+
     warm_up_threshold = scenario.warm_up_period + (scenario.sdec_opening_hour * 60)
 
-    limit_duration = (scenario.sim_duration / 12) + warm_up_threshold
+    limit_duration = (scenario.sim_duration / 12) + (scenario.sdec_opening_hour * 60)
+    limit_duration_inc_warmup = limit_duration + scenario.warm_up_period
 
     print(f"Limit duration: {limit_duration}")
+
+    # Find the latest event for each patient
+    latest_event_per_id = (
+        event_log.groupby("id", as_index=False)["time"]
+        .max()
+        .rename(columns={"time": "latest_event_time"})
+    )
+
+    # Filter down to only patient IDs we want to keep
+    latest_event_per_id = latest_event_per_id[
+        latest_event_per_id["latest_event_time"] >= warm_up_threshold
+    ]
+
+    print(
+        f"Placement dataframe started construction at {time.strftime('%H:%M:%S', time.localtime())}"
+    )
+    print(f"Before warm-up filtering: {len(event_log)} rows")
+    # exclude patients where the latest event occurred before the warm-up period had elapsed
+    event_log = event_log[event_log["id"].isin(latest_event_per_id["id"].values)]
+    print(f"After warm-up filtering: {len(event_log)} rows")
 
     full_patient_df = reshape_for_animations(
         event_log,
         entity_col_name=entity_col_name,
-        limit_duration=limit_duration,
+        limit_duration=limit_duration_inc_warmup,
         every_x_time_units=snapshot_interval,
         step_snapshot_max=step_snapshot_max,
     )
@@ -283,7 +277,7 @@ def create_vidigi_animation_advanced(
         event_position_df=event_position_df,
         scenario=scenario,
         entity_col_name=entity_col_name,
-        plotly_height=900,
+        plotly_height=700,
         frame_duration=600,
         frame_transition_duration=800,
         plotly_width=1200,

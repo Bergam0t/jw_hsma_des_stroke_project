@@ -539,79 +539,126 @@ if button_run_pressed:
             st.dataframe(my_trial.trial_patient_df)
 
         with tab2:
-            # st.write(my_trial.graph_objects)
-
-            # st.subheader("Arrival Time Debugging")
-
-            # my_trial.trial_patient_df["clock_start_day"] = (
-            #     my_trial.trial_patient_df["clock_start"] / 60
-            # )
-
-            # st.plotly_chart(
-            #     px.scatter(
-            #         data_frame=my_trial.trial_patient_df,
-            #         x="clock_start_day",
-            #         y="run",
-            #         color="arrived_ooh",
-            #     )
-            # )
-
-            # st.subheader("Arrival Time Debugging - By Diagnosis (Run 1 Only)")
-
-            # st.plotly_chart(
-            #     px.scatter(
-            #         data_frame=my_trial.trial_patient_df[
-            #             my_trial.trial_patient_df["run"] == 1
-            #         ],
-            #         x="clock_start_day",
-            #         y="patient_diagnosis",
-            #         color="arrived_ooh",
-            #     )
-            # )
-
-            st.dataframe(
-                my_trial.trial_patient_df.groupby(["run", "patient_diagnosis"]).size()
-            )
-
-            st.dataframe(
-                my_trial.trial_patient_df.groupby(["run", "patient_diagnosis"])
-                .size()
-                .groupby("patient_diagnosis")
-                .mean()
-            )
-
+        #########################
+        # MARK: Animation       #
+        #########################
         with tab3:
+            # This needs to receive the full dataframe, including patients generated
+            # before the warm-up period elapsed
             event_log = convert_event_log(my_trial.trial_patient_df)
 
             # st.write("Event Log")
             # st.write(event_log)
             # st.plotly_chart(create_vidigi_animation_advanced(event_log, scenario=g()))
 
-            st.write(create_vidigi_animation_advanced(event_log, scenario=g()))
+            st.write(create_vidigi_animation(event_log, scenario=g()))
 
+        ##############################
+        #  MARK: Process Maps (DFGs) #
+        ##############################
         with tab4:
             event_log["event"] = event_log["event"].apply(
                 lambda x: x.replace("_time", "").replace("_", " ")
             )
-            event_log_timestamp = add_sim_timestamp(event_log)
-            nodes, edges = discover_dfg(event_log_timestamp, case_col="id")
 
-            image_zoom(
-                Image.open(
-                    io.BytesIO(
+            @st.fragment
+            def plot_dfg_per_feature(split_vars=split_vars, event_log=event_log):
+                selected_facet_var = st.selectbox(
+                    "Select a metric to facet the values by",
+                    options=[None] + list(split_vars.keys()),
+                    key="selected_facet_var_dfg",
+                )
+
+                time_format = st.radio(
+                    "Time Format",
+                    ["Display in Minutes", "Display in Hours", "Display in Days"],
+                )
+
+                event_log_final = event_log.copy()
+
+                if time_format == "Display in Minutes":
+                    unit = "minutes"
+
+                elif time_format == "Display in Hours":
+                    event_log_final["time"] = event_log_final["time"]
+                    unit = "hours"
+
+                elif time_format == "Display in Days":
+                    # Convert sim time in minutes to hours (/60) then to days (/24)
+                    event_log_final["time"] = event_log_final["time"]
+                    unit = "days"
+
+                event_log_final = add_sim_timestamp(
+                    event_log_final, time_unit="minutes"
+                )
+
+                if selected_facet_var is None:
+                    nodes, edges = discover_dfg(
+                        event_log_final, case_col="id", time_unit=unit
+                    )
+
+                    st.image(
                         dfg_to_graphviz(
                             nodes,
                             edges,
                             return_image=True,
-                            size=[10, 5],
-                            dpi=600,
-                            direction="LR",
-                        )
+                            size=[8, 4],
+                            dpi=500,
+                            direction="TD",
+                            time_unit=unit,
+                        ),
+                        width="content",
                     )
-                ),
-                size=(800, 400),
-                keep_resolution=True,
-            )
+                else:
+                    selected_facet_value = split_vars[selected_facet_var]
+
+                    if patient_df[selected_facet_value].nunique() > 3:
+                        dfg_tabs = st.tabs(
+                            [str(x) for x in patient_df[selected_facet_value].unique()]
+                        )
+                    else:
+                        dfg_tabs = st.columns(
+                            patient_df[selected_facet_value].nunique()
+                        )
+
+                    for idx, var in enumerate(
+                        patient_df[selected_facet_value].unique()
+                    ):
+                        event_log_filtered = convert_event_log(
+                            patient_df[patient_df[selected_facet_value] == var]
+                        )
+
+                        event_log_filtered["event"] = event_log_filtered["event"].apply(
+                            lambda x: x.replace("_time", "").replace("_", " ")
+                        )
+
+                        event_log_filtered = add_sim_timestamp(event_log_filtered)
+
+                        nodes, edges = discover_dfg(
+                            event_log_filtered[
+                                event_log_filtered[selected_facet_value] == var
+                            ],
+                            case_col="id",
+                            time_unit=unit,
+                        )
+
+                        dfg_tabs[idx].image(
+                            dfg_to_graphviz(
+                                nodes,
+                                edges,
+                                return_image=True,
+                                size=[8, 4],
+                                dpi=500,
+                                direction="TD",
+                                time_unit=unit,
+                                title=f"{selected_facet_value}: {var}",
+                            )
+                        )
+
+            plot_dfg_per_feature()
+
+        with tab5:
+            st.write("Coming Soon")
 
         with tab6:
             ####################################
