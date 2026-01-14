@@ -114,7 +114,7 @@ with st.sidebar:
             "How many hours a day should the SDEC be available?",
             0.0,
             24.0,
-            8.0,
+            12.0,
             step=0.25,
         )
 
@@ -140,7 +140,7 @@ with st.sidebar:
         )
 
         ctp_open_time = st.time_input(
-            "What time should the CTP scanner be open from?", value="08:00", step=60
+            "What time should the CTP scanner be open from?", value="09:00", step=60
         )
 
         g.ctp_opening_hour = ctp_open_time.hour
@@ -188,7 +188,7 @@ with st.sidebar:
     g.patient_inter_day = in_hours_mean_iat
 
     out_of_hours_demand_start = st.time_input(
-        "What time does your out-of-hours demand start?", "20:00", step=60
+        "What time does your out-of-hours demand start?", "00:00", step=60
     )
 
     g.ooh_start = out_of_hours_demand_start.hour
@@ -225,7 +225,12 @@ with st.sidebar:
     )
 
     warm_up_duration_days = st.slider(
-        "Number of days to warm-up", 30, 180, value=180, step=5
+        "Number of days to warm-up",
+        30,
+        180,
+        value=90,
+        step=5,
+        help="This is how long the model will run for before starting to record results. Warming up is recommended so that metrics aren't skewed by the ward starting empty, which is an unrealistic sitution.\n\nYou can use the 'Occupancy Over Time' graph to help assess whether your warm-up duration is appropriate.",
     )
     warm_up_duration_minutes = warm_up_duration_days * 24 * 60
 
@@ -246,6 +251,10 @@ with st.sidebar:
 
     g.master_seed = master_seed
 
+
+#####################
+# MARK: Run Model   #
+#####################
 button_run_pressed = st.button("Run simulation")
 
 if button_run_pressed:
