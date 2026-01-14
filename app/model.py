@@ -18,6 +18,48 @@ with open("app/resources/style.css") as css:
 
 g.gen_graph = True
 
+patient_level_metric_choices = {
+    "Nurse Queue Time": "q_time_nurse",
+    "Ward Queue Time": "q_time_ward",
+    "Onset Type": "onset_type",
+    "MRS Type": "mrs_type",
+    "MRS on Discharge": "mrs_discharge",
+    "Diagnosis": "diagnosis",
+    "Patient Diagnosis": "patient_diagnosis",
+    "Priority": "priority",
+    "Non-Admission": "non_admission",
+    "Advanced CT Pathway": "advanced_ct_pathway",
+    "SDEC Pathway": "sdec_pathway",
+    "Thrombolysis": "thrombolysis",
+    "Thrombectomy": "thrombectomy",
+    "Admission Avoidance": "admission_avoidance",
+    "Ward LOS": "ward_los",
+    "Ward LOS for Thrombolysis Patients": "ward_los_thrombolysis",
+    "SDEC LOS": "sdec_los",
+    "CTP duration": "ctp_duration",
+    "CT duration": "ct_duration",
+    "Arrived OOH": "arrived_ooh",
+    "Patient Diagnosis Type": "patient_diagnosis_type",
+}
+
+split_vars = {
+    "Onset Type": "onset_type",
+    "MRS Type": "mrs_type",
+    "MRS on Discharge": "mrs_discharge",
+    "Patient Diagnosis": "patient_diagnosis",
+    "Priority": "priority",
+    "Advanced CT Pathway": "advanced_ct_pathway",
+    "SDEC Pathway": "sdec_pathway",
+    "Thrombolysis": "thrombolysis",
+    "Thrombectomy": "thrombectomy",
+    "Admission Avoidance": "admission_avoidance",
+    "Arrived OOH": "arrived_ooh",
+    "Patient Diagnosis Type": "patient_diagnosis_type",
+}
+
+#########################
+# MARK: Inputs          #
+#########################
 with st.sidebar:
     st.subheader("Stroke Ward Configuration")
 
@@ -572,48 +614,14 @@ if button_run_pressed:
             )
 
         with tab6:
-
+            ####################################
+            # MARK: Flexible Plot of Variables #
+            ####################################
             @st.fragment
-            def plot_histogram():
-                patient_level_metric_choices = {
-                    "Nurse Queue Time": "q_time_nurse",
-                    "Ward Queue Time": "q_time_ward",
-                    "Onset Type": "onset_type",
-                    "MRS Type": "mrs_type",
-                    "MRS on Discharge": "mrs_discharge",
-                    "Diagnosis": "diagnosis",
-                    "Patient Diagnosis": "patient_diagnosis",
-                    "Priority": "priority",
-                    "Non-Admission": "non_admission",
-                    "Advanced CT Pathway": "advanced_ct_pathway",
-                    "SDEC Pathway": "sdec_pathway",
-                    "Thrombolysis": "thrombolysis",
-                    "Thrombectomy": "thrombectomy",
-                    "Admission Avoidance": "admission_avoidance",
-                    "Ward LOS": "ward_los",
-                    "Ward LOS for Thrombolysis Patients": "ward_los_thrombolysis",
-                    "SDEC LOS": "sdec_los",
-                    "CTP duration": "ctp_duration",
-                    "CT duration": "ct_duration",
-                    "Arrived OOH": "arrived_ooh",
-                    "Patient Diagnosis Type": "patient_diagnosis_type",
-                }
-
-                split_vars = {
-                    "Onset Type": "onset_type",
-                    "MRS Type": "mrs_type",
-                    "MRS on Discharge": "mrs_discharge",
-                    "Patient Diagnosis": "patient_diagnosis",
-                    "Priority": "priority",
-                    "Advanced CT Pathway": "advanced_ct_pathway",
-                    "SDEC Pathway": "sdec_pathway",
-                    "Thrombolysis": "thrombolysis",
-                    "Thrombectomy": "thrombectomy",
-                    "Admission Avoidance": "admission_avoidance",
-                    "Arrived OOH": "arrived_ooh",
-                    "Patient Diagnosis Type": "patient_diagnosis_type",
-                }
-
+            def plot_histogram(
+                patient_level_metric_choices=patient_level_metric_choices,
+                split_vars=split_vars,
+            ):
                 patient_level_metric_selected = st.multiselect(
                     "Select a metric to view the distribution of",
                     options=list(patient_level_metric_choices.keys()),
@@ -639,9 +647,7 @@ if button_run_pressed:
 
                 if selected_facet_var is not None:
                     df = (
-                        my_trial.trial_patient_df[
-                            [selected_facet_value] + selected_values
-                        ]
+                        patient_df[[selected_facet_value] + selected_values]
                         .melt(id_vars=["id", "run", selected_facet_value])
                         .copy()
                     )
@@ -653,16 +659,13 @@ if button_run_pressed:
                             x="value",
                             facet_row=selected_facet_value,
                             facet_col="variable",
-                            height=200 * len(selected_facet_var),
+                            # Scale plot with number of variables
+                            height=200 * len(df[selected_facet_value].unique()),
                         )
                     )
 
                 else:
-                    df = (
-                        my_trial.trial_patient_df[selected_values]
-                        .melt(id_vars=["id", "run"])
-                        .copy()
-                    )
+                    df = patient_df[selected_values].melt(id_vars=["id", "run"]).copy()
                     if normalise_los_to_days:
                         df["value"] = df["value"] / 60 / 24
                     st.plotly_chart(
