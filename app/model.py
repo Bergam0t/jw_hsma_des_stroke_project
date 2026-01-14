@@ -1,12 +1,13 @@
-from stroke_ward_model.stroke_admission_classes import g, Trial
+from stroke_ward_model.inputs import g
+from stroke_ward_model.trial import Trial
 import streamlit as st
 import plotly.express as px
 from app_utils import iconMetricContainer
-from convert_event_log import convert_event_log, create_vidigi_animation_advanced
+from convert_event_log import convert_event_log, create_vidigi_animation
 from vidigi.process_mapping import add_sim_timestamp, discover_dfg, dfg_to_graphviz
 from streamlit_image_zoom import image_zoom
-from PIL import Image
-import io
+import pandas as pd
+from plots import plot_occupancy
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 
