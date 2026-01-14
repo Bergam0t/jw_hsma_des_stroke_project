@@ -1,3 +1,3 @@
 # Reference
 
-::: stroke_ward_model.stroke_admission_classes.Patient
+::: stroke_ward_model.entities.Patient

@@ -1,6 +1,7 @@
 import pandas as pd
 from pathlib import Path
-from stroke_ward_model.stroke_admission_classes import g, Trial
+from stroke_ward_model.inputs import g
+from stroke_ward_model.trial import Trial
 
 
 def assert_frame_not_equal(*args, **kwargs):

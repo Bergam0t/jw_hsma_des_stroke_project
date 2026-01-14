@@ -1,395 +1,19 @@
-import simpy
-import random
 import pandas as pd
-import simpy.resources
 import numpy as np
 import matplotlib.pyplot as plt
-from sim_tools.trace import trace
+import simpy
+
+# import random
 from sim_tools.distributions import Gamma, Exponential, Normal, DiscreteEmpirical
+from sim_tools.trace import trace
+
+# import simpy.resources
 from stroke_ward_model.utils import minutes_to_ampm
 from vidigi.resources import VidigiPriorityStore as PriorityResource
 from vidigi.resources import VidigiStore as Resource
 
-
-# MARK: g
-# Global class to store parameters for the model.
-class g:
-    """
-    Global simulation configuration parameters.
-
-    This class stores all model-wide constants used in the discrete-event
-    simulation, including runtime settings, resource capacities, operational
-    constraints, diagnosis-based length-of-stay (LOS) values, cost parameters,
-    and state flags modified during execution. All attributes are class
-    variables and are intended to be accessed without instantiation.
-
-    Attributes
-    ----------
-    sim_duration : int
-        Total simulated time in minutes (default: 525600, one year).
-    number_of_runs : int
-        Number of simulation replications.
-    warm_up_period : float
-        Number of minutes considered warm-up (not included in statistics),
-        defined as one-fifth of the total simulation time.
-    patient_inter_day : int
-        Interarrival time (minutes) for daytime patient generation.
-        NOTE that this is not used in entirely the way that you might expect.
-        This may be changed in future.
-        NOTE that this has now been changed to be used directly as an average IAT, but this
-        may change in future. This supersedes the previous note.
-    patient_inter_night : int
-        Interarrival time (minutes) for nighttime patient generation.
-        NOTE that this is not used in entirely the way that you might expect.
-        This may be changed in future.
-        NOTE that this has now been changed to be used directly as an average IAT, but this
-        may change in future. This supersedes the previous note.
-    number_of_nurses : int
-        Number of nurses available in the system.
-    mean_n_consult_time : int
-        Mean consultation time in minutes.
-    mean_n_ct_time : int
-        Mean CT processing time in minutes.
-    number_of_ctp : int
-        Number of CT processing units available.
-    sdec_beds : int
-        Number of SDEC (Same Day Emergency Care) beds.
-    mean_n_sdec_time : int
-        Mean SDEC stay duration in minutes.
-    number_of_ward_beds : int
-        Number of inpatient ward beds.
-    mean_n_i_ward_time_mrs_0 : int
-        Inpatient LOS (minutes) for ischemic stroke by modified Rankin Scale (0).
-    mean_n_i_ward_time_mrs_1 : int
-        Inpatient LOS (minutes) for ischemic stroke by modified Rankin Scale (1).
-    mean_n_i_ward_time_mrs_2 : int
-        Inpatient LOS (minutes) for ischemic stroke by modified Rankin Scale (2).
-    mean_n_i_ward_time_mrs_3 : int
-        Inpatient LOS (minutes) for ischemic stroke by modified Rankin Scale (3).
-    mean_n_i_ward_time_mrs_4 : int
-        Inpatient LOS (minutes) for ischemic stroke by modified Rankin Scale (4).
-    mean_n_i_ward_time_mrs_5 : int
-        Inpatient LOS (minutes) for ischemic stroke by modified Rankin Scale (5).
-    mean_n_ich_ward_time_mrs_0 : int
-        Inpatient LOS (minutes) for intracerebral hemorrhage by MRS score (0).
-    mean_n_ich_ward_time_mrs_1 : int
-        Inpatient LOS (minutes) for intracerebral hemorrhage by MRS score (1).
-    mean_n_ich_ward_time_mrs_2 : int
-        Inpatient LOS (minutes) for intracerebral hemorrhage by MRS score (2).
-    mean_n_ich_ward_time_mrs_3 : int
-        Inpatient LOS (minutes) for intracerebral hemorrhage by MRS score (3).
-    mean_n_ich_ward_time_mrs_4 : int
-        Inpatient LOS (minutes) for intracerebral hemorrhage by MRS score (4).
-    mean_n_ich_ward_time_mrs_5 : int
-        Inpatient LOS (minutes) for intracerebral hemorrhage by MRS score (5).
-    mean_n_non_stroke_ward_time : int
-        LOS (minutes) for non-stroke patients (TODO: CHECK INTERPRETATION).
-    mean_n_tia_ward_time : int
-        LOS (minutes) for TIA patients.
-    thrombolysis_los_save : float
-        Proportional reduction in LOS for thrombolysed patients.
-        This is used as a multiplier with the sampled length of stay.
-        For example, if a patient has a LOS of 10 days, and the value of `thrombolysis_los_save`
-        was 0.75, the calculation would be 10 * 0.75, resulting in a LOS of 7.5 days.
-    mean_mrs : int
-        Default/mean modified Rankin Scale score used in the model.
-    ich : int
-        Percentage likelihood of intracerebral hemorrhage diagnosis (TODO: CHECK INTERPRETATION).
-    i : int
-        Percentage likelihood of ischemic stroke diagnosis.
-    tia : int
-        Percentage likelihood of TIA diagnosis.
-    stroke_mimic : int
-        Percentage likelihood of stroke mimic diagnosis.
-    tia_admission : int
-        Percentage chance that a TIA requires admission.
-    stroke_mimic_admission : int
-        Percentage chance that a stroke mimic requires admission.
-    sdec_dr_cost_min : float
-        Cost per minute for SDEC doctor time.
-    inpatient_bed_cost : float
-        Cost of a standard inpatient bed stay, per day.
-    inpatient_bed_cost_thrombolysis : float
-        Cost of an inpatient stay following thrombolysis, per day.
-    sdec_unav_time : int
-        Operational unavailability duration of SDEC
-    sdec_unav_freq : int
-        How often SDEC unavailability duration occurs
-    ctp_unav_time : int
-        Operational unavailability duration of CT perfusion scanner
-    ctp_unav_freq : int
-        How often CT perfusion unavailability duration occurs
-    sdec_unav : bool
-        Indicates whether SDEC is unavailable.
-    ctp_unav : bool
-        Indicates whether CT processing is unavailable.
-    write_to_csv : bool
-        Whether the simulation should write results to CSV.
-    gen_graph : bool
-        Whether visualisation graphs should be generated.
-    therapy_sdec : bool
-        Whether therapy is delivered through SDEC.
-    trials_run_counter : int
-        Internal counter tracking completed simulation replications.
-    patient_arrival_gen_1 : bool
-        Flag used by the simulation to control one patient arrival stream.
-    patient_arrival_gen_2 : bool
-        Flag used by the simulation to control a second patient arrival stream.
-    master_seed : int
-        Master random seed used to adjust the underlying seeds used to populate
-        the random number streams. Trials run without changing parameters or the
-        master seed will be consistent.
-
-    Notes
-    -----
-    GENAI declaration (SR): this docstring has been generated with the aid of
-    ChatGPT 5.1.
-    All generated content has been thoroughly reviewed.
-    """
-
-    # 525600 (Year of Minutes)
-    sim_duration = 525600
-    number_of_runs = 10
-    warm_up_period = sim_duration / 5
-
-    # TODO: SR query: confirm with John in case this was done in this way for a particular
-    # reason, but I've swapped it to a more intuitive use and something that will allow
-    # for setting via the app interface too
-    # patient_inter_day = 5
-    # patient_inter_night = 5
-    patient_inter_day = 200.0
-    patient_inter_night = 666.666666666667
-
-    number_of_nurses = 2
-    number_of_ctp = 1
-    sdec_beds = 5
-    number_of_ward_beds = 1
-
-    mean_n_consult_time = 60
-    mean_n_ct_time = 20
-    mean_n_sdec_time = 240
-
-    # Different variables for ward stay based on diagnosis, thrombolysis and MRS
-    # TODO: SR - how are these determined? Assume historical data?
-    # TODO: SR - what is suspected reason for MRS of 1 having lower LOS than MRS of 0 whether ICH or I?
-
-    mean_n_i_ward_time_mrs_0 = 1440 * 6
-    mean_n_i_ward_time_mrs_1 = 1440 * 4
-    mean_n_i_ward_time_mrs_2 = 1440 * 8
-    mean_n_i_ward_time_mrs_3 = 1440 * 11
-    mean_n_i_ward_time_mrs_4 = 1440 * 24
-    mean_n_i_ward_time_mrs_5 = 1440 * 29
-
-    mean_n_ich_ward_time_mrs_0 = 1440 * 5
-    mean_n_ich_ward_time_mrs_1 = 1440 * 4
-    mean_n_ich_ward_time_mrs_2 = 1440 * 5
-    mean_n_ich_ward_time_mrs_3 = 1440 * 17
-    mean_n_ich_ward_time_mrs_4 = 1440 * 36
-    mean_n_ich_ward_time_mrs_5 = 1440 * 36
-
-    # Set temporary shape parameters for gamma distribution
-    ich_shape = 1.5
-    i_shape = 2.0
-
-    # Set parameters for mild (TIA) and non-stroke stays
-    mean_n_non_stroke_ward_time = 4320
-    mean_n_tia_ward_time = 1440
-    # Set temporary shape parameters for gamma distribution
-    tia_shape = 3.0
-    non_stroke_shape = 4.0
-
-    thrombolysis_los_save = 0.75
-
-    sdec_dr_cost_min = 0.50
-    # TODO: SR: John, I assume these are costs per day?
-    # Can we explain where these values are taken from?
-    # Is it specific to a given trust? What year are these values calculated for?
-    inpatient_bed_cost = 876
-    inpatient_bed_cost_thrombolysis = 528.17
-    mean_mrs = 2
-
-    # Diagnosis % range
-    ich = 10
-    i = 60
-    tia = 70
-    stroke_mimic = 80
-
-    # Admission Range (% Chance of Admission) for TIA and Stroke Mimic, non
-    # stroke shares the range with stroke mimic in this model. (This is
-    # reflected in our real data mainly because most non strokes are often
-    # mimics that are not classified under the stroke mimic criteria in our
-    # data collection)
-    tia_admission = 10
-    stroke_mimic_admission = 30
-
-    # Operational hours of SDEC and CTP are set by the user and stored in the
-    # variables below.
-
-    sdec_unav_time = 0
-    sdec_unav_freq = 0
-    ctp_unav_time = 0
-    ctp_unav_freq = 0
-
-    sdec_value = 0
-    ctp_value = 0
-
-    sdec_opening_hour = 0
-    ctp_opening_hour = 0
-
-    in_hours_start = 8
-    ooh_start = 20
-
-    in_hours_start_mins = in_hours_start * 60
-    ooh_start_mins = ooh_start * 60
-
-    # These values are changed by the model itself
-
-    sdec_unav = False
-    ctp_unav = False
-    write_to_csv = False
-    gen_graph = False
-    therapy_sdec = False
-    trials_run_counter = 1
-    patient_arrival_gen_1 = False
-    patient_arrival_gen_2 = False
-
-    show_trace = False
-    tracked_cases = list(range(1, 50))
-    trace_config = {"tracked": tracked_cases}
-
-    master_seed = 42
-
-
-# MARK: Patient
-# Patient class to store patient attributes
-class Patient:
-    """
-    Representation of an individual patient within the simulation.
-
-    A `Patient` object stores all clinical, pathway, and state-related
-    attributes required for modelling flow through the stroke/TIA care
-    process. Several characteristics (onset type, MRS score, diagnosis
-    category, admission likelihood) are randomly generated on creation
-    using parameters defined in the global configuration class `g`.
-
-    Parameters
-    ----------
-    p_id : int or str
-        Unique identifier for the patient.
-
-    Attributes
-    ----------
-    id : int or str
-        Patient identifier.
-    q_time_nurse : float
-        Time spent waiting for nursing assessment or consultation.
-    q_time_ward : float
-        Time spent waiting for an inpatient ward bed.
-    onset_type : int
-        Categorisation of onset information:
-        - 0 : Known onset
-        - 1 : Unknown onset but within CTP window
-        - 2 : Unknown onset and outside CTP window
-    mrs_type : int
-        Modified Rankin Scale score at presentation (0–5).
-        Drawn from an exponential distribution and capped at 5.
-    mrs_discharge : int
-        Modified Rankin Scale score at discharge (set later by the model).
-    diagnosis : int
-        Raw randomised diagnostic value (0–100). Used to map to a clinical
-        category based on thresholds defined in `g`.
-    patient_diagnosis : int
-        Encoded diagnosis category:
-        - 0 : Intracerebral haemorrhage (ICH)
-        - 1 : Ischaemic stroke (I)
-        - 2 : Transient ischaemic attack (TIA)
-        - 3 : Stroke mimic
-        - 4 : Non-stroke
-    priority : int
-        Triage priority level (used for queue ordering).
-    non_admission : int
-        Randomised admission likelihood score (0–100).
-    advanced_ct_pathway : bool
-        Whether the patient enters an advanced CT imaging pathway.
-    sdec_pathway : bool
-        Whether the patient is routed through SDEC.
-    thrombolysis : bool
-        Whether the patient receives thrombolysis.
-    thrombectomy : bool
-        Whether the patient receives thrombectomy.
-    admission_avoidance : bool
-        Whether the patient avoids an admission by being seen in SDEC instead.
-
-    Notes
-    -----
-    GENAI declaration (SR): this docstring has been generated with the aid
-    of ChatGPT 5.1.
-    All generated content has been thoroughly reviewed.
-    """
-
-    def __init__(self, p_id):
-        self.id = p_id
-        self.q_time_nurse = np.NaN  # SR NOTE - changed this to NaN by default
-        self.q_time_ward = np.NaN  # SR NOTE - changed this to NaN by default
-        # 0 = known onset, 1 = unknown onset (in ctp range), 2 = unknown (out of
-        # ctp range)
-        # SR NOTE: I've moved all random generation to the start of their assessment
-        # to allow for reproducibility
-        # self.onset_type = random.randint(0, 2)
-        self.onset_type = np.NaN
-        # Max MRS is set to 5
-        # self.mrs_type = min(round(random.expovariate(1.0 / g.mean_mrs)), 5)
-        self.mrs_type = np.NaN
-        self.mrs_discharge = np.NaN  # SR NOTE - changed this to NaN by default
-        # <=5 is ICH, <=55 is I, <= 70 is TIA, <=85 is Stroke Mimic, >85 is non\
-        # stroke, this set in g class
-        # TODO: SR: This does not appear to be in sync with actual values seen in the g class
-        # TODO: SR: Which is correct?
-        # self.diagnosis = random.randint(0, 100)
-        self.diagnosis = np.NaN
-        # 0 = ICH, 1 = I, 2 = TIA, 3 = Stroke Mimic, 4 = non stroke
-        self.patient_diagnosis = np.NaN  # SR NOTE - changed this to NaN by default
-        self.priority = 1
-        # self.non_admission = random.randint(0, 100)
-        self.non_admission = np.NaN
-        self.advanced_ct_pathway = False
-        self.sdec_pathway = False
-        self.thrombolysis = False
-        self.thrombectomy = False
-        self.admission_avoidance = False
-
-        # NOTE: Additional items added by SR
-        self.ward_los = np.NaN
-        self.ward_los_thrombolysis = np.NaN
-        self.sdec_los = np.NaN
-        self.ctp_duration = np.NaN
-        self.ct_duration = np.NaN
-        self.arrived_ooh = False
-        self.generated_during_warm_up = False
-        self.patient_diagnosis_type = None
-
-        # Recording times of various events for animations
-        self.clock_start = np.NaN  # This can be considered to be their arrival time
-        self.nurse_q_start_time = np.NaN
-        self.nurse_triage_start_time = np.NaN
-        self.nurse_triage_end_time = np.NaN
-        self.ct_or_ctp_scan_start_time = np.NaN
-        self.ct_or_ctp_scan_end_time = np.NaN
-        self.sdec_admit_time = np.NaN
-        self.sdec_discharge_time = np.NaN
-        self.ward_q_start_time = np.NaN
-        self.ward_admit_time = np.NaN
-        self.ward_discharge_time = np.NaN
-        self.exit_time = np.NaN
-
-        self.nurse_attending_id = np.NaN
-        self.ct_scanner_id = np.NaN
-        self.sdec_bed_id = np.NaN
-        self.ward_bed_id = np.NaN
-
-        # Flag for optionally removing incomplete journeys or processing them
-        # in a different way in results
-        self.journey_completed = False
+from stroke_ward_model.inputs import g
+from stroke_ward_model.entities import Patient
 
 
 # MARK: Model
@@ -526,8 +150,14 @@ class Model:
         # Create a variable to store the mean queuing time for the nurse
         self.mean_q_time_nurse = 0
 
+        # Create a variable to store the mean queuing time for the nurse
+        self.max_q_time_nurse = 0
+
         # Create a variable to store the mean time waiting for a ward bed
         self.mean_q_time_ward = 0
+
+        # Create a variable to store the max time waiting for a ward bed
+        self.max_q_time_ward = 0
 
         # Create a variable to store the mean length of stay in the ward
         self.mean_los_ward = 0
@@ -558,9 +188,16 @@ class Model:
         self.occupancy_graph_df = pd.DataFrame()
         self.occupancy_graph_df["Time"] = [0.0]
         self.occupancy_graph_df["Ward Occupancy"] = [0.0]
+        self.occupancy_graph_df["During Warm-Up"] = True
 
         # A list to store the patient objects
         self.patient_objects = []
+
+        self.i_patients_count = 0
+        self.ich_patients_count = 0
+        self.tia_patients_count = 0
+        self.stroke_mimic_patient_count = 0
+        self.non_stroke_patient_count = 0
 
         self.initialise_distributions()
 
@@ -591,68 +228,143 @@ class Model:
         self.ct_time_dist = Exponential(mean=g.mean_n_ct_time, random_seed=seeds[3])
         self.sdec_time_dist = Exponential(mean=g.mean_n_sdec_time, random_seed=seeds[4])
 
-        self.i_ward_time_mrs_0_dist = Exponential(
-            mean=g.mean_n_i_ward_time_mrs_0, random_seed=seeds[5]
+        # self.i_ward_time_mrs_0_dist = Exponential(
+        #     mean=g.mean_n_i_ward_time_mrs_0, random_seed=seeds[5]
+        # )
+        # self.i_ward_time_mrs_1_dist = Exponential(
+        #     mean=g.mean_n_i_ward_time_mrs_1, random_seed=seeds[6]
+        # )
+        # self.i_ward_time_mrs_2_dist = Exponential(
+        #     mean=g.mean_n_i_ward_time_mrs_2, random_seed=seeds[7]
+        # )
+        # self.i_ward_time_mrs_3_dist = Exponential(
+        #     mean=g.mean_n_i_ward_time_mrs_3, random_seed=seeds[8]
+        # )
+        # self.i_ward_time_mrs_4_dist = Exponential(
+        #     mean=g.mean_n_i_ward_time_mrs_4, random_seed=seeds[9]
+        # )
+        # self.i_ward_time_mrs_5_dist = Exponential(
+        #     mean=g.mean_n_i_ward_time_mrs_5, random_seed=seeds[10]
+        # )
+
+        # self.ich_ward_time_mrs_0_dist = Exponential(
+        #     mean=g.mean_n_ich_ward_time_mrs_0, random_seed=seeds[11]
+        # )
+        # self.ich_ward_time_mrs_1_dist = Exponential(
+        #     mean=g.mean_n_ich_ward_time_mrs_1, random_seed=seeds[12]
+        # )
+        # self.ich_ward_time_mrs_2_dist = Exponential(
+        #     mean=g.mean_n_ich_ward_time_mrs_2, random_seed=seeds[13]
+        # )
+        # self.ich_ward_time_mrs_3_dist = Exponential(
+        #     mean=g.mean_n_ich_ward_time_mrs_3, random_seed=seeds[14]
+        # )
+        # self.ich_ward_time_mrs_4_dist = Exponential(
+        #     mean=g.mean_n_ich_ward_time_mrs_4, random_seed=seeds[15]
+        # )
+        # self.ich_ward_time_mrs_5_dist = Exponential(
+        #     mean=g.mean_n_ich_ward_time_mrs_5, random_seed=seeds[16]
+        # )
+
+        # self.tia_ward_time_dist = Exponential(
+        #     mean=g.mean_n_non_stroke_ward_time, random_seed=seeds[17]
+        # )
+        # self.non_stroke_ward_time_dist = Exponential(
+        #     mean=g.mean_n_tia_ward_time, random_seed=seeds[18]
+        # )
+
+        self.i_ward_time_mrs_0_dist = Gamma(
+            alpha=g.i_shape,
+            beta=g.mean_n_i_ward_time_mrs_0 / g.i_shape,
+            random_seed=seeds[5],
         )
-        self.i_ward_time_mrs_1_dist = Exponential(
-            mean=g.mean_n_i_ward_time_mrs_1, random_seed=seeds[6]
+        self.i_ward_time_mrs_1_dist = Gamma(
+            alpha=g.i_shape,
+            beta=g.mean_n_i_ward_time_mrs_1 / g.i_shape,
+            random_seed=seeds[6],
         )
-        self.i_ward_time_mrs_2_dist = Exponential(
-            mean=g.mean_n_i_ward_time_mrs_2, random_seed=seeds[7]
+        self.i_ward_time_mrs_2_dist = Gamma(
+            alpha=g.i_shape,
+            beta=g.mean_n_i_ward_time_mrs_2 / g.i_shape,
+            random_seed=seeds[7],
         )
-        self.i_ward_time_mrs_3_dist = Exponential(
-            mean=g.mean_n_i_ward_time_mrs_3, random_seed=seeds[8]
+        self.i_ward_time_mrs_3_dist = Gamma(
+            alpha=g.i_shape,
+            beta=g.mean_n_i_ward_time_mrs_3 / g.i_shape,
+            random_seed=seeds[8],
         )
-        self.i_ward_time_mrs_4_dist = Exponential(
-            mean=g.mean_n_i_ward_time_mrs_4, random_seed=seeds[9]
+        self.i_ward_time_mrs_4_dist = Gamma(
+            alpha=g.i_shape,
+            beta=g.mean_n_i_ward_time_mrs_4 / g.i_shape,
+            random_seed=seeds[9],
         )
-        self.i_ward_time_mrs_5_dist = Exponential(
-            mean=g.mean_n_i_ward_time_mrs_5, random_seed=seeds[10]
+        self.i_ward_time_mrs_5_dist = Gamma(
+            alpha=g.i_shape,
+            beta=g.mean_n_i_ward_time_mrs_5 / g.i_shape,
+            random_seed=seeds[10],
         )
 
-        self.ich_ward_time_mrs_0_dist = Exponential(
-            mean=g.mean_n_ich_ward_time_mrs_0, random_seed=seeds[11]
+        self.ich_ward_time_mrs_0_dist = Gamma(
+            alpha=g.ich_shape,
+            beta=g.mean_n_ich_ward_time_mrs_0 / g.ich_shape,
+            random_seed=seeds[11],
         )
-        self.ich_ward_time_mrs_1_dist = Exponential(
-            mean=g.mean_n_ich_ward_time_mrs_1, random_seed=seeds[12]
+        self.ich_ward_time_mrs_1_dist = Gamma(
+            alpha=g.ich_shape,
+            beta=g.mean_n_ich_ward_time_mrs_1 / g.ich_shape,
+            random_seed=seeds[12],
         )
-        self.ich_ward_time_mrs_2_dist = Exponential(
-            mean=g.mean_n_ich_ward_time_mrs_2, random_seed=seeds[13]
+        self.ich_ward_time_mrs_2_dist = Gamma(
+            alpha=g.ich_shape,
+            beta=g.mean_n_ich_ward_time_mrs_2 / g.ich_shape,
+            random_seed=seeds[13],
         )
-        self.ich_ward_time_mrs_3_dist = Exponential(
-            mean=g.mean_n_ich_ward_time_mrs_3, random_seed=seeds[14]
+        self.ich_ward_time_mrs_3_dist = Gamma(
+            alpha=g.ich_shape,
+            beta=g.mean_n_ich_ward_time_mrs_3 / g.ich_shape,
+            random_seed=seeds[14],
         )
-        self.ich_ward_time_mrs_4_dist = Exponential(
-            mean=g.mean_n_ich_ward_time_mrs_4, random_seed=seeds[15]
+        self.ich_ward_time_mrs_4_dist = Gamma(
+            alpha=g.ich_shape,
+            beta=g.mean_n_ich_ward_time_mrs_4 / g.ich_shape,
+            random_seed=seeds[15],
         )
-        self.ich_ward_time_mrs_5_dist = Exponential(
-            mean=g.mean_n_ich_ward_time_mrs_5, random_seed=seeds[16]
+        self.ich_ward_time_mrs_5_dist = Gamma(
+            alpha=g.ich_shape,
+            beta=g.mean_n_ich_ward_time_mrs_5 / g.ich_shape,
+            random_seed=seeds[16],
         )
 
-        self.tia_ward_time_dist = Exponential(
-            mean=g.mean_n_non_stroke_ward_time, random_seed=seeds[17]
+        self.tia_ward_time_dist = Gamma(
+            alpha=g.tia_shape,
+            beta=g.mean_n_non_stroke_ward_time / g.tia_shape,
+            random_seed=seeds[17],
         )
-        self.non_stroke_ward_time_dist = Exponential(
-            mean=g.mean_n_tia_ward_time, random_seed=seeds[18]
+
+        self.non_stroke_ward_time_dist = Gamma(
+            alpha=g.non_stroke_shape,
+            beta=g.mean_n_tia_ward_time / g.non_stroke_shape,
+            random_seed=seeds[18],
         )
 
         # Patient Attribute Distributions
-        # TODO: Is this the best distribution for this?
         self.onset_type_distribution = DiscreteEmpirical(
-            values=[0, 1, 2], freq=[1, 1, 1], random_seed=seeds[19]
+            values=[0, 1, 2],
+            freq=[1, 1, 1],  # equal weight of all possibilities
+            random_seed=seeds[19],
         )
 
         self.mrs_type_distribution = Exponential(g.mean_mrs, random_seed=seeds[20])
 
         self.diagnosis_distribution = DiscreteEmpirical(
-            values=list(range(0, 101)),
-            freq=[1 for i in range(101)],
+            values=list(range(0, 101)),  # 0 to 100 (upper is exclusive)
+            freq=[1 for _ in range(101)],  # equal weight of all possibilities
             random_seed=seeds[21],
         )
 
         self.non_admission_distribution = DiscreteEmpirical(
-            values=list(range(0, 101)),
-            freq=[1 for i in range(101)],
+            values=list(range(0, 101)),  # 0 to 100 (upper is exclusive)
+            freq=[1 for _ in range(101)],  # equal weight of all possibilities
             random_seed=seeds[22],
         )
 
@@ -704,8 +416,8 @@ class Model:
         )
 
     def is_in_hours(self, time_of_day):
-        start = g.in_hours_start_mins
-        end = g.ooh_start_mins
+        start = g.in_hours_start * 60
+        end = g.ooh_start * 60
 
         if start < end:
             # Normal case (does not cross midnight)
@@ -1101,18 +813,23 @@ class Model:
         if patient.diagnosis <= self.ich_range:
             patient.patient_diagnosis = 0
             patient.patient_diagnosis_type = "ICH"
+            self.ich_patients_count += 1
         elif patient.diagnosis <= self.i_range:
             patient.patient_diagnosis = 1
             patient.patient_diagnosis_type = "I"
+            self.i_patients_count += 1
         elif patient.diagnosis <= self.tia_range:
             patient.patient_diagnosis = 2
             patient.patient_diagnosis_type = "TIA"
+            self.tia_patients_count += 1
         elif patient.diagnosis <= self.stroke_mimic_range:
             patient.patient_diagnosis = 3
             patient.patient_diagnosis_type = "Stroke Mimic"
+            self.stroke_mimic_patient_count += 1
         elif patient.diagnosis > self.non_stroke_range:
             patient.patient_diagnosis = 4
             patient.patient_diagnosis_type = "Non Stroke"
+            self.non_stroke_patient_count += 1
         # TODO: SR have added this else clause but need to confirm this is correct
         # TODO: SR patients were occasionally not getting allocated a diagnosis and
         # TODO: SR this would then cause issues with generating LOS etc
@@ -1603,6 +1320,13 @@ class Model:
                     self.occupancy_graph_df.loc[len(self.occupancy_graph_df)] = [
                         self.env.now,
                         len(self.ward_occupancy),
+                        False,
+                    ]
+                else:
+                    self.occupancy_graph_df.loc[len(self.occupancy_graph_df)] = [
+                        self.env.now,
+                        len(self.ward_occupancy),
+                        True,
                     ]
 
                 # The patient attribute for the queuing time in the ward is
@@ -2216,11 +1940,18 @@ class Model:
 
         self.mean_q_time_nurse = round(self.results_df["Q Time Nurse"].mean(), 0)
 
+        self.max_q_time_nurse = round(self.results_df["Q Time Nurse"].max(), 0)
+
         self.number_of_admissions_avoided = len(self.admission_avoidance)
 
         self.mean_q_time_ward = round(self.results_df["Q Time Ward"].mean() / 60, 0)
 
-        self.mean_ward_occupancy = round(self.results_df["Ward Occupancy"].mean())
+        self.max_q_time_ward = round(self.results_df["Q Time Ward"].max() / 60, 0)
+
+        try:
+            self.mean_ward_occupancy = round(self.results_df["Ward Occupancy"].mean())
+        except ValueError:
+            self.mean_ward_occupancy = np.NaN
 
         self.admission_delays = len(self.results_df[self.results_df["Q Time Ward"] > 0])
 
@@ -2328,6 +2059,10 @@ class Model:
 
             self.occupancy_graph_df.drop([0], inplace=True)
 
+            occupancy_after_warm_up = self.occupancy_graph_df[
+                self.occupancy_graph_df["After Warm-Up"] == True
+            ]
+
             fig, ax = plt.subplots()
 
             ax.set_xlabel("Time")
@@ -2340,16 +2075,16 @@ class Model:
             )
 
             ax.plot(
-                self.occupancy_graph_df["Time"],
-                self.occupancy_graph_df["Ward Occupancy"],
+                occupancy_after_warm_up["Time"],
+                occupancy_after_warm_up["Ward Occupancy"],
                 color="b",
                 linestyle="-",
                 label="Ward Occupancy",
             )
 
             # Add trend line
-            x = self.occupancy_graph_df["Time"]
-            y = self.occupancy_graph_df["Ward Occupancy"]
+            x = occupancy_after_warm_up["Time"]
+            y = occupancy_after_warm_up["Ward Occupancy"]
             z = np.polyfit(x, y, 1)  # 1 = linear fit
             p = np.poly1d(z)
             ax.plot(x, p(x), color="b", linestyle="--", label="Trend Line")
@@ -2475,242 +2210,3 @@ class Model:
 
         # TODO: SR: I have commented this out for now
         # self.plot_stroke_run_graphs()
-
-
-# Class representing a Trial for our simulation - a batch of simulation runs.
-
-
-# MARK: Trial class
-class Trial:
-    """
-    Orchestrator for running multiple simulation iterations (runs) and aggregating results.
-
-    The Trial class manages the execution of multiple `Model` instances as defined
-    in the global configuration. It collects performance metrics, financial data,
-    and patient-level logs from each individual run into centralized DataFrames
-    for cross-run analysis.
-
-    Attributes
-    ----------
-    df_trial_results : pd.DataFrame
-        A summary DataFrame where each row represents a single simulation run.
-        Tracks metrics such as mean queue times, occupancy, and financial savings.
-    graph_objects : list
-        Storage for visualization objects generated during each simulation run.
-    model_objects : list
-        A collection of `Model` instances created during the trial, allowing
-        for post-hoc inspection of specific run states.
-    trial_patient_dataframes : list
-        A list of DataFrames, each containing detailed attribute data for every
-        patient in a specific run.
-    trial_patient_df : pd.DataFrame
-        The master DataFrame created by concatenating all patient-level data
-        across all runs in the trial.
-    trial_info : str
-        A descriptive string containing the configuration settings used for
-        the current trial (e.g., SDEC therapy status and resource availability).
-
-    Notes
-    -----
-    GENAI declaration (SR): this docstring has been generated with the aid
-    of Google Gemini Flash.
-    All generated content has been thoroughly reviewed.
-    """
-
-    # The constructor sets up a pandas dataframe that will store the key
-    # results from each run with run number as the index.
-
-    def __init__(self):
-        self.df_trial_results = pd.DataFrame()
-        self.df_trial_results["Run Number"] = [0]
-        self.df_trial_results["Mean Q Time Nurse (Mins)"] = [0.0]
-        self.df_trial_results["Number of Admissions Avoided In Run"] = [0.0]
-        self.df_trial_results["Mean Q Time Ward (Hour)"] = [0.0]
-        self.df_trial_results["Mean Occupancy"] = [0.0]
-        self.df_trial_results["Number of Admission Delays"] = [0.0]
-        self.df_trial_results["Mean Length of Stay Ward (Hours)"] = [0.0]
-        self.df_trial_results["Financial Savings of Admissions Avoidance (£)"] = [0.0]
-        self.df_trial_results["SDEC Medical Staff Cost (£)"] = [0.0]
-        self.df_trial_results["SDEC Savings (£)"] = [0.0]
-        self.df_trial_results["Thrombolysis Savings (£)"] = [0.0]
-        self.df_trial_results["Total Savings"] = [0.0]
-        self.df_trial_results["Mean MRS Change"] = [0.0]
-        self.df_trial_results.set_index("Run Number", inplace=True)
-
-        self.graph_objects = []
-        self.model_objects = []
-        # self.patient_objects = {}
-        self.trial_patient_dataframes = []
-        self.trial_patient_df = pd.DataFrame()
-
-    # MARK: M: run_trial
-    # Method to run a trial
-
-    def run_trial(self):
-        """
-        Executes the batch of simulation runs and aggregates the resulting data.
-
-        This method performs the following steps:
-
-        1. Loops through the number of runs specified in `g.number_of_runs`.
-
-        2. Instantiates and executes a `Model` for each run.
-
-        3. Collects summary metrics (e.g., queue times, savings) into `df_trial_results`.
-
-        4. Flattens patient-level data into a single master DataFrame.
-
-        5. Calculates trial-level means and updates the global `g` class attributes.
-
-        6. Optionally exports results to a CSV file if `g.write_to_csv` is True.
-
-        This method dynamically updates the global configuration class `g` by
-        calculating the mean of results across all runs and storing them in
-        dictionaries keyed by the trial counter.
-
-        See Also
-        --------
-        Model.run : The method called to execute an individual simulation iteration.
-
-        Notes
-        -----
-        GENAI declaration (SR): this docstring has been generated with the aid
-        of Google Gemini Flash.
-        All generated content has been thoroughly reviewed.
-        """
-        # Run the simulation for the number of runs specified in g class.
-        # For each run, we create a new instance of the Model class and call its
-        # run method, which sets everything else in motion.  Once the run has
-        # completed, we grab out the stored run results
-        # and store it against the run number in the trial results dataframe.
-
-        for run in range(g.number_of_runs):
-            my_model = Model(run)
-            my_model.run()
-
-            self.model_objects.append(my_model)
-
-            self.df_trial_results.loc[run] = [
-                my_model.mean_q_time_nurse,
-                my_model.number_of_admissions_avoided,
-                my_model.mean_q_time_ward,
-                my_model.mean_ward_occupancy,
-                my_model.admission_delays,
-                my_model.mean_los_ward,
-                my_model.sdec_financial_savings,
-                my_model.medical_staff_cost,
-                my_model.savings_sdec,
-                my_model.thrombolysis_savings,
-                my_model.total_savings,
-                my_model.mean_mrs_change,
-            ]
-
-            # self.patient_objects[run] = my_model.patient_objects
-            patient_dataframe = pd.DataFrame(
-                [p.__dict__ for p in my_model.patient_objects]
-            )
-            patient_dataframe["run"] = run + 1
-            self.trial_patient_dataframes.append(patient_dataframe)
-
-        self.trial_patient_df = pd.concat(self.trial_patient_dataframes)
-
-        if g.write_to_csv == True:
-            self.df_trial_results.to_csv(
-                f"trial {g.trials_run_counter} trial results.csv", index=False
-            )
-
-        # TODO: SR: FIX appending of per-run graphs to trial class
-        # if g.gen_graph:
-        #     self.graph_objects.append(my_model.plot_stroke_run_graphs(plot=False))
-
-        # This is new code that will store all averages to compare across
-        # the different trials. It does this by checking if the attribute
-        # exists in the global g class, and if it doesn't it creates it. It
-        # then stores the mean of each run against the attribute
-        # (eg "trial_mean_q_time_nurse")
-
-        # The mean is stored against the key of g.trials_run_counter.
-
-        for attr, col in [
-            ("trial_mean_q_time_nurse", "Mean Q Time Nurse (Mins)"),
-            (
-                "trial_number_of_admissions_avoided",
-                "Number of Admissions Avoided In Run",
-            ),
-            ("trial_mean_q_time_ward", "Mean Q Time Ward (Hour)"),
-            ("trial_mean_occupancy", "Mean Occupancy"),
-            ("trial_number_of_admission_delays", "Number of Admission Delays"),
-            (
-                "trial_financial_savings_of_a_a",
-                "Financial Savings of Admissions Avoidance (£)",
-            ),
-            ("sdec_medical_cost", "SDEC Medical Staff Cost (£)"),
-            ("trial_sdec_financial_savings", "SDEC Savings (£)"),
-            ("trial_thrombolysis_savings", "Thrombolysis Savings (£)"),
-            ("trial_total_savings", "Total Savings"),
-            ("trial_mrs_change", "Mean MRS Change"),
-        ]:
-            # Checks to see if the attribute already exists and if it doesn't
-            # create it. Creates a mean of each trial and creates a dictionary
-            # that can be read later.
-
-            if not hasattr(g, attr):
-                setattr(g, attr, {})
-            getattr(g, attr)[g.trials_run_counter] = round(
-                self.df_trial_results[col].mean(), 2
-            )
-
-        # Code to store the configuration that was used for this trial.
-        self.trial_info = (
-            f"Trial {g.trials_run_counter}, SDEC Therapy = {g.therapy_sdec},"
-            f" SDEC Open % = {g.sdec_value}, CTP Open % = {g.ctp_value}"
-        )
-
-        print("---------------------------------------------------")
-        print(f"{self.trial_info}")
-        print(f"Trial {g.trials_run_counter} Results:")
-        print(" ")
-        print(
-            f"Trial Mean Q Time Nurse (Mins):     \
-              {g.trial_mean_q_time_nurse[g.trials_run_counter]}"
-        )
-        print(
-            f"Trial Number of Admissions Avoided: \
-              {g.trial_number_of_admissions_avoided[g.trials_run_counter]}"
-        )
-        print(
-            f"Trial Mean Q Time Ward (Hours):     \
-              {g.trial_mean_q_time_ward[g.trials_run_counter]}"
-        )
-        print(
-            f"Trial Mean Ward Occupancy:          \
-              {g.trial_mean_occupancy[g.trials_run_counter]}"
-        )
-        print(
-            f"Trial Number of Admission Delays:   \
-              {g.trial_number_of_admission_delays[g.trials_run_counter]}"
-        )
-        print(
-            f"Trial SDEC Total Savings (£):       \
-              {g.trial_financial_savings_of_a_a[g.trials_run_counter]}"
-        )
-        print(
-            f"Trial SDEC Medical Cost (£):        \
-              {g.sdec_medical_cost[g.trials_run_counter]}"
-        )
-        print(
-            f"Trial SDEC Savings - Cost (£):      \
-              {g.trial_sdec_financial_savings[g.trials_run_counter]}"
-        )
-        print(
-            f"Trial Thrombolysis Savings (£):     \
-              {g.trial_thrombolysis_savings[g.trials_run_counter]}"
-        )
-        print(
-            f"Trial Total Savings (£):            \
-              {g.trial_total_savings[g.trials_run_counter]}"
-        )
-        print(
-            f"Mean MRS Change:                    \
-              {g.trial_mrs_change[g.trials_run_counter]}"
-        )

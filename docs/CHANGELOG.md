@@ -73,13 +73,15 @@
 - Updated structure of code to package structure to support better long-term development and use of additional documentation tools
     - Model classes split into separate file to model running code
     - All code moved into src/stroke_ward_model
+    - Classes split into separate files
     - Added pyproject.toml file
-- Added markers to enable richer code minimap in core classes
+- Added "MARK" comments as markers to enable richer code minimap in core classes
 - Updated gitignore with wildcards to make matching of additional results files more robust
-- Added a minimal requirements file
+- Added a minimal requirements.txt and environment.yml files to replace strongly specified win_environment and mac_environment folders
     - Added new requirements including streamlit, mkdocs, mkdocs-material, mkdocstrings, vidigi, pytest
-- Added a separate requirements file for web app
+- Added a separate requirements.txt file for web app
     - This removes the requirements that are not required for the web app, such as mkdocs and pytest
+    - This will be picked up by Streamlit community cloud, and shortens the load time for container reloads
 
 # v0.1.0
 

@@ -1,3 +1,3 @@
 # Reference
 
-::: stroke_ward_model.stroke_admission_classes.Trial
+::: stroke_ward_model.trial.Trial
