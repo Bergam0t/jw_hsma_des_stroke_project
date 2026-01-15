@@ -1059,7 +1059,19 @@ class Model:
         # The if statement below checks if the SDEC pathway is active at this
         # given time and if there is space in the SDEC itself.
 
-        if g.sdec_unav == False and len(self.sdec_occupancy) <= g.sdec_beds:
+        if g.sdec_unav:
+            patient.sdec_running_when_required = False
+        else:
+            patient.sdec_running_when_required = True
+
+        if len(self.sdec_occupancy) < g.sdec_beds:
+            patient.sdec_full_when_required = False
+        else:
+            patient.sdec_full_when_required = True
+
+        # SR: Note that I have changed the check from <= to < (so that patients are only allowed
+        # to request a bed when a bed is free)
+        if g.sdec_unav == False and len(self.sdec_occupancy) < g.sdec_beds:
             # If the conditions above are met the patient attribute for the SDEC
             # are changed to True and the patient is added to the SDEC occupancy
             # list.
