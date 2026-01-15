@@ -1,5 +1,6 @@
 import numpy as np
 
+
 # MARK: Patient
 # Patient class to store patient attributes
 class Patient:
@@ -110,13 +111,19 @@ class Patient:
 
         # Recording times of various events for animations
         self.clock_start = np.NaN  # This can be considered to be their arrival time
+
         self.nurse_q_start_time = np.NaN
         self.nurse_triage_start_time = np.NaN
         self.nurse_triage_end_time = np.NaN
+
         self.ct_or_ctp_scan_start_time = np.NaN
         self.ct_or_ctp_scan_end_time = np.NaN
+
+        self.sdec_running_when_required = np.NaN
+        self.sdec_full_when_required = np.NaN
         self.sdec_admit_time = np.NaN
         self.sdec_discharge_time = np.NaN
+
         self.ward_q_start_time = np.NaN
         self.ward_admit_time = np.NaN
         self.ward_discharge_time = np.NaN

@@ -826,16 +826,12 @@ class Model:
             patient.patient_diagnosis = 3
             patient.patient_diagnosis_type = "Stroke Mimic"
             self.stroke_mimic_patient_count += 1
-        elif patient.diagnosis > self.non_stroke_range:
-            patient.patient_diagnosis = 4
-            patient.patient_diagnosis_type = "Non Stroke"
-            self.non_stroke_patient_count += 1
-        # TODO: SR have added this else clause but need to confirm this is correct
-        # TODO: SR patients were occasionally not getting allocated a diagnosis and
-        # TODO: SR this would then cause issues with generating LOS etc
+        # SR - this was changed from an elif as was resulting in patients in between
+        # the two thresholds not getting allocated a diagnosis, which causes errors elsewhere
         else:
             patient.patient_diagnosis = 4
             patient.patient_diagnosis_type = "Non Stroke"
+            self.non_stroke_patient_count += 1
 
         trace(
             time=self.env.now,
