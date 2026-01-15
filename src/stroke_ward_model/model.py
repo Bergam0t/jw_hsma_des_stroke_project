@@ -511,8 +511,11 @@ class Model:
                 # TODO: SR query: confirm with John in case this was done in this way for a particular
                 # reason, but I've swapped it to a more intuitive use and something that will allow
                 # for setting via the app interface too
+                # Original code below for comparison:
+                # ----- ORIGINAL -------- #
                 # sampled_inter = random.expovariate(0.025 / 5)
                 # sampled_inter = random.expovariate(1.0 / g.patient_inter_day)
+                # ----- END ORIGINAL -------- #
                 sampled_inter = self.patient_inter_day_dist.sample()
 
                 trace(
@@ -614,8 +617,11 @@ class Model:
                 # TODO: SR query: confirm with John in case this was done in this way for a particular
                 # reason, but I've swapped it to a more intuitive use and something that will allow
                 # for setting via the app interface too
+                # Original code below for comparison:
+                # ----- ORIGINAL -------- #
                 # sampled_inter = random.expovariate(0.0075 / 5)
                 # sampled_inter = random.expovariate(1.0 / g.patient_inter_night)
+                # ----- END ORIGINAL -------- #
                 sampled_inter = self.patient_inter_night_dist.sample()
 
                 trace(
@@ -932,7 +938,9 @@ class Model:
                     sampled_nurse_act_time
                 )
 
-        # MARK: CT Perfusion Scanner Use
+        # TIME WITH NURSE ENDS - NURSE RESOURCE RELEASED HERE FOR NEXT PATIENT
+
+        # MARK: CT and CT Perfusion Scanner Use
         # The if formula below checks to see if the CTP scanner is active
         # and if it is the following code is followed including updating the
         # patient advanced CT pathway attribute
@@ -946,7 +954,7 @@ class Model:
                 config=g.trace_config,
             )
 
-            patient.ct_or_ctp_scan_start_time = self.env.now
+            patient.ctp_scan_start_time = self.env.now
 
             patient.advanced_ct_pathway = True
 
@@ -968,7 +976,7 @@ class Model:
                 config=g.trace_config,
             )
 
-            patient.ct_or_ctp_scan_end_time = self.env.now
+            patient.ctp_scan_end_time = self.env.now
 
             # Add data to the DF afer the warm up period.
 
@@ -988,10 +996,8 @@ class Model:
                 config=g.trace_config,
             )
 
-            patient.ct_or_ctp_scan_start_time = self.env.now
+            patient.ct_scan_start_time = self.env.now
 
-            # TODO: SR: Confirm if ct act time should still pass in this instance
-            # TODO: SR: Is a standard CT scan performed when CT perfusion scanner not available?
             # sampled_ct_act_time = random.expovariate(1.0 / g.mean_n_ct_time)
             sampled_ct_act_time = self.ct_time_dist.sample()
             patient.ct_duration = sampled_ct_act_time
@@ -1006,7 +1012,7 @@ class Model:
                 config=g.trace_config,
             )
 
-            patient.ct_or_ctp_scan_end_time = self.env.now
+            patient.ct_scan_end_time = self.env.now
 
             if self.env.now > g.warm_up_period:
                 self.results_df.at[patient.id, "Time with CT"] = sampled_ct_act_time
@@ -1018,6 +1024,9 @@ class Model:
         if self.env.now > g.warm_up_period:
             self.results_df.at[patient.id, "CTP Status"] = g.ctp_unav
 
+        #############################
+        # MARK: Thrombolysis
+        #############################
         # The below code checks the patient's attributes to see if the
         # thrombolysis attribute should be changed to True, this is based off
         # the patient diagnosis, onset type and mrs type. There are different
