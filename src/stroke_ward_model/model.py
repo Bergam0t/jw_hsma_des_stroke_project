@@ -672,7 +672,6 @@ class Model:
         All generated content has been thoroughly reviewed.
 
         """
-        # TODO SR: Confirm this is ok with John
         # SR: Add initial offset
         # SR: Patient generators have also been updated
         # to match with how this is working
@@ -730,7 +729,6 @@ class Model:
         of Google Gemini Flash.
         All generated content has been thoroughly reviewed.
         """
-        # TODO SR: Confirm this is ok with John
         #  SR: Add initial offset
         # SR: Patient generators have also been updated
         # to match with how this is working
@@ -1053,6 +1051,10 @@ class Model:
         if self.env.now > g.warm_up_period:
             self.results_df.at[patient.id, "Thrombolysis"] = patient.thrombolysis
 
+        #########################
+        # MARK: SDEC Admission
+        #########################
+
         # The below code records the status of both the SDEC pathway.
         # Both exist as generators and this data is recorded to ensure they are
         # operating as expected.
@@ -1060,7 +1062,6 @@ class Model:
         if self.env.now > g.warm_up_period:
             self.results_df.at[patient.id, "SDEC Status"] = g.sdec_unav
 
-        # MARK: SDEC Admission
         # The if statement below checks if the SDEC pathway is active at this
         # given time and if there is space in the SDEC itself.
 
@@ -1201,6 +1202,82 @@ class Model:
                     config=g.trace_config,
                 )
 
+            ################################
+            # MARK: Admission Avoidance
+            ################################
+            # This code add information regarding the patients admission avoidance.
+
+            if patient.admission_avoidance == True and patient.patient_diagnosis < 2:
+                if self.env.now > g.warm_up_period:
+                    self.results_df.at[patient.id, "Admission Avoidance"] = (
+                        patient.sdec_pathway
+                    )
+
+                    last_index = self.results_df["SDEC Savings"].last_valid_index()
+                    last_value = self.results_df.loc[last_index, "SDEC Savings"]
+                    if last_index > 0 and pd.notnull:
+                        self.results_df.at[patient.id, "SDEC Savings"] = (
+                            last_value + g.inpatient_bed_cost
+                        )
+
+                    else:
+                        self.results_df.at[patient.id, "SDEC Savings"] = (
+                            g.inpatient_bed_cost
+                        )
+
+                # Regardless of whether the warm-up has passed, recording in patient
+                # object that this patient's journey was completed
+                patient.exit_time = self.env.now
+                patient.journey_completed = True
+
+                if (
+                    patient.admission_avoidance == True
+                    and patient.patient_diagnosis < 2
+                    and self.env.now > g.warm_up_period
+                ):
+                    self.admission_avoidance.append(patient)
+
+                # Patients with a True admission avoidance are added to a list that is
+                # used to calculate the savings from the avoided admissions.
+
+                # This code introduces a small element of randomness into the admission
+                # rates for the non stroke, tia and stroke mimic patients.
+
+                # self.tia_admission_chance = random.normalvariate(g.tia_admission, 1)
+                self.tia_admission_chance = (
+                    self.tia_admission_chance_distribution.sample()
+                )
+                # self.stroke_mimic_admission_chance = random.normalvariate(
+                #     g.stroke_mimic_admission, 1
+                # )
+                self.stroke_mimic_admission_chance = (
+                    self.stroke_mimic_admission_chance_distribution.sample()
+                )
+
+                # This code exists after the admission avoidance code so they are not
+                # added to the admission avoidance list, as that should only be for
+                # SDEC patients who avoid admission. This code checks if TIA, non stroke
+                # and stroke mimic patients should be admitted based on the values
+                # established in the previous code and g class.
+
+                if (
+                    patient.non_admission >= self.tia_admission_chance
+                    and patient.patient_diagnosis == 2
+                ):
+                    patient.admission_avoidance = True
+
+                    patient.exit_time = self.env.now
+                    patient.journey_completed = True
+
+                elif (
+                    patient.non_admission >= self.stroke_mimic_admission_chance
+                    and patient.patient_diagnosis > 2
+                ):
+                    patient.admission_avoidance = True
+
+                    patient.exit_time = self.env.now
+                    patient.journey_completed = True
+
         # The below code records the patients diagnosis attribute, this is added
         # to the DF to check the diagnosis code is working correctly.
         # SR - refactored recording of diagnosis type in results df as that's now recorded
@@ -1211,82 +1288,9 @@ class Model:
             )
             self.results_df.at[patient.id, "Onset Type"] = patient.onset_type
 
-        # This code add information regarding the patients admission avoidance.
-
-        if patient.admission_avoidance == True and patient.patient_diagnosis < 2:
-            if self.env.now > g.warm_up_period:
-                self.results_df.at[patient.id, "Admission Avoidance"] = (
-                    patient.sdec_pathway
-                )
-
-                last_index = self.results_df["SDEC Savings"].last_valid_index()
-                last_value = self.results_df.loc[last_index, "SDEC Savings"]
-                if last_index > 0 and pd.notnull:
-                    self.results_df.at[patient.id, "SDEC Savings"] = (
-                        last_value + g.inpatient_bed_cost
-                    )
-
-                else:
-                    self.results_df.at[patient.id, "SDEC Savings"] = (
-                        g.inpatient_bed_cost
-                    )
-
-            # Regardless of whether the warm-up has passed, recording in patient
-            # object that this patient's journey was completed
-            patient.exit_time = self.env.now
-            patient.journey_completed = True
-
-        # This code adds the Patient's MRS to the DF, this can be used to check
-        # all code that interacts with this runs correctly.
-
-        if self.env.now > g.warm_up_period:
+            # This code adds the Patient's MRS to the DF, this can be used to check
+            # all code that interacts with this runs correctly.
             self.results_df.at[patient.id, "MRS Type"] = patient.mrs_type
-
-        # Patients with a True admission avoidance are added to a list that is
-        # used to calculate the savings from the avoided admissions.
-
-        if (
-            patient.admission_avoidance == True
-            and patient.patient_diagnosis < 2
-            and self.env.now > g.warm_up_period
-        ):
-            self.admission_avoidance.append(patient)
-
-        # This code introduces a small element of randomness into the admission
-        # rates for the non stroke, tia and stroke mimic patients.
-
-        # self.tia_admission_chance = random.normalvariate(g.tia_admission, 1)
-        self.tia_admission_chance = self.tia_admission_chance_distribution.sample()
-        # self.stroke_mimic_admission_chance = random.normalvariate(
-        #     g.stroke_mimic_admission, 1
-        # )
-        self.stroke_mimic_admission_chance = (
-            self.stroke_mimic_admission_chance_distribution.sample()
-        )
-
-        # This code exists after the admission avoidance code so they are not
-        # added to the admission avoidance list, as that should only be for
-        # SDEC patients who avoid admission. This code checks if TIA, non stroke
-        # and stroke mimic patients should be admitted based on the values
-        # established in the previous code and g class.
-
-        if (
-            patient.non_admission >= self.tia_admission_chance
-            and patient.patient_diagnosis == 2
-        ):
-            patient.admission_avoidance = True
-
-            patient.exit_time = self.env.now
-            patient.journey_completed = True
-
-        elif (
-            patient.non_admission >= self.stroke_mimic_admission_chance
-            and patient.patient_diagnosis > 2
-        ):
-            patient.admission_avoidance = True
-
-            patient.exit_time = self.env.now
-            patient.journey_completed = True
 
         # MARK: Ward Admission
         # once all the above code has been run all patients who will not admit
@@ -1860,9 +1864,6 @@ class Model:
             if self.env.now > g.warm_up_period:
                 self.results_df.at[patient.id, "Q Time Ward"] = patient.q_time_ward
 
-            # TODO: SR: Confirm this is expected
-            # SR: This triggered an error in a patient with a diagnosis of 1 and MRS of 0
-            # who didn't seem to have a ward stay
             # TODO: SR: I've tweaked this to take whichever of the ward_los or thrombolysis los is generated
             # TODO SR: It would be better to take a more robust approach to this step.
             try:
