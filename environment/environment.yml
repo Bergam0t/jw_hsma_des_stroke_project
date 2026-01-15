@@ -11,7 +11,7 @@ dependencies:
       - stlitepack==0.4.5
       - vidigi==1.2.0
       - matplotlib==3.10.8
-      - sim-tools==1.0.0
+      - sim-tools==1.0.1
       - streamlit-mermaid==0.3.0
       - mkdocs-material==9.7.0
       - mkdocstrings[python]

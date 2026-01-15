@@ -5,7 +5,7 @@ streamlit==1.52.1
 stlitepack==0.4.5
 vidigi==1.2.0
 matplotlib==3.10.8
-sim-tools==1.0.0
+sim-tools==1.0.1
 streamlit-mermaid==0.3.0
 streamlit-extras==0.7.8
 streamlit_image_zoom==0.0.4
