@@ -80,6 +80,9 @@ with st.sidebar:
     g.therapy_sdec = therapy_sdec
 
     st.divider()
+    ###############################
+    # MARK: Opening Time params   #
+    ###############################
     st.subheader("Opening Hours")
 
     set_opening_hours_as_perc = st.toggle(
@@ -121,7 +124,7 @@ with st.sidebar:
         st.caption(f"The SDEC is available {sdec_avail_hours / 24.0:.1%} of the time")
 
         sdec_open_time = st.time_input(
-            "What time should the SDEC be open from?", value="08:00", step=60
+            "What time should the SDEC be open from?", value="08:00", step=60 * 60
         )
         g.sdec_opening_hour = sdec_open_time.hour
 
@@ -140,7 +143,9 @@ with st.sidebar:
         )
 
         ctp_open_time = st.time_input(
-            "What time should the CTP scanner be open from?", value="09:00", step=60
+            "What time should the CTP scanner be open from?",
+            value="09:00",
+            step=60 * 60,
         )
 
         g.ctp_opening_hour = ctp_open_time.hour
@@ -170,10 +175,22 @@ with st.sidebar:
 
     st.divider()
 
+    ###############################
+    # MARK: Demand params         #
+    ###############################
     st.subheader("Demand")
 
+    upscale_pct = st.slider(
+        "Upscale demand by percentage (%)",
+        min_value=0,
+        max_value=100,
+        value=0,
+        help="Reduces inter-arrival time to increase total patient volume.",
+    )
+    upscale_factor = 1 + (upscale_pct / 100)
+
     in_hours_demand_start = st.time_input(
-        "What time does your in-hours demand start?", "08:00", step=60
+        "What time does your in-hours demand start?", "07:00", step=60 * 60
     )
 
     g.in_hours_start = in_hours_demand_start.hour
@@ -185,10 +202,8 @@ with st.sidebar:
         value=200.0,
     )
 
-    g.patient_inter_day = in_hours_mean_iat
-
     out_of_hours_demand_start = st.time_input(
-        "What time does your out-of-hours demand start?", "00:00", step=60
+        "What time does your out-of-hours demand start?", "00:00", step=60 * 60
     )
 
     g.ooh_start = out_of_hours_demand_start.hour
@@ -200,10 +215,37 @@ with st.sidebar:
         value=666.67,
     )
 
-    g.patient_inter_night = out_of_hours_mean_iat
+    # Calculate shift durations (handling midnight wrap-around)
+    # This assumes 'In-Hours' lasts until 'OOH' starts
+    in_hours_duration = (
+        out_of_hours_demand_start.hour - in_hours_demand_start.hour
+    ) % 24
+    ooh_duration = 24 - in_hours_duration
+
+    # Apply upscale to the Inter-Arrival Times for the model
+    g.in_hours_start = in_hours_demand_start.hour
+    g.ooh_start = out_of_hours_demand_start.hour
+
+    g.patient_inter_day = in_hours_mean_iat / upscale_factor
+    g.patient_inter_night = out_of_hours_mean_iat / upscale_factor
+
+    # Calculate Annual Volumes for display
+    # Formula: (60 / Adjusted IAT) * Hours per day * 365.25
+    annual_in = (60 / g.patient_inter_day) * in_hours_duration * 365.25
+    annual_out = (60 / g.patient_inter_night) * ooh_duration * 365.25
+    total_annual = annual_in + annual_out
+
+    # 4. Display Summary to User
+    st.info(
+        f"**Estimated Annual Volume:** {int(total_annual):,} arrivals per year "
+        f"({int(annual_in):,} In-Hours, {int(annual_out):,} Out-of-Hours)"
+    )
 
     st.divider()
 
+    ###############################
+    # MARK: Advanced model params #
+    ###############################
     st.subheader("Model Parameters (ADVANCED)")
 
     number_of_runs = st.number_input(
@@ -246,7 +288,7 @@ with st.sidebar:
         min_value=1,
         max_value=None,
         step=1,
-        help="This parameter affects the random numbers used",
+        help="This parameter affects the random numbers used. Controlled random number generation is used for inter-arrival times, activity times, and patient attribute allocation.<br/><br/><b>It is recommended to keep the seed the same when trying out different scenarios.</b>",
     )
 
     g.master_seed = master_seed
