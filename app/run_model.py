@@ -514,6 +514,8 @@ if button_run_pressed:
 
             st.subheader("Results")
 
+            sim_duration_display = f"{(sim_duration_days // 365):.0f} year{'' if sim_duration_days // 365 == 1 else 's'} and {(sim_duration_days % 365):.0f} days"
+
             col1a, col2a, col3a = st.columns(3)
 
             with col1a:
@@ -531,7 +533,7 @@ if button_run_pressed:
                     )
 
                     st.caption(
-                        f"Average savings were £{my_trial.df_trial_results['Thrombolysis Savings (£)'].mean():,.0f} across the full model run of {(sim_duration_days // 365)} year{'' if sim_duration_days // 365 == 1 else 's'} and {sim_duration_days % 365} days"
+                        f"Average savings were £{my_trial.df_trial_results['Thrombolysis Savings (£)'].mean():,.0f} across the full model run of {sim_duration_display}."
                     )
 
             with col2a:
@@ -549,7 +551,8 @@ if button_run_pressed:
                     )
 
                     st.caption(
-                        f"Average savings were £{my_trial.df_trial_results['SDEC Savings (£)'].mean():,.0f} across the full model run of {(sim_duration_days // 365)} year{'' if sim_duration_days // 365 == 1 else 's'} and {sim_duration_days % 365} days"
+                        f"Average savings were £{my_trial.df_trial_results['SDEC Savings (£)'].mean():,.0f} across the full model run of {sim_duration_display}. "
+                        + f"This is calculated as the total savings from running the SDEC, subtracting the medical cost of running the SDEC. SDEC running costs are set to £{(g.sdec_dr_cost_min * 60):.2f} per hour."
                     )
 
             with col3a:
@@ -567,7 +570,7 @@ if button_run_pressed:
                     )
 
                     st.caption(
-                        f"Average savings were £{my_trial.df_trial_results['Total Savings'].mean():,.0f} across the full model run of {(sim_duration_days // 365)} year{'' if sim_duration_days // 365 == 1 else 's'} and {sim_duration_days % 365} days"
+                        f"Average savings were £{my_trial.df_trial_results['Total Savings'].mean():,.0f} across the full model run of {sim_duration_display}."
                     )
 
             st.html("<br/>")
@@ -607,10 +610,38 @@ if button_run_pressed:
                     )
 
                     st.caption(
-                        f"On average, {my_trial.df_trial_results['Number of Admissions Avoided In Run'].mean():,.0f} admissions were avoided across the full model run of {(sim_duration_days // 365)} year{'' if sim_duration_days // 365 == 1 else 's'} and {sim_duration_days % 365} days"
+                        f"On average, {my_trial.df_trial_results['Number of Admissions Avoided In Run'].mean():,.0f} admissions were avoided across the full model run of {sim_duration_display}."
                     )
 
             with col3b:
+                additional_patients_thrombolysed = (
+                    g.trial_additional_thrombolysis_from_ctp[g.trials_run_counter]
+                )
+
+                additional_patients_thrombolysed_per_year = (
+                    additional_patients_thrombolysed / (g.sim_duration / 60 / 24)
+                ) * 365
+
+                with iconMetricContainer(
+                    key="additional_thrombolysis",
+                    icon_unicode="f38c",
+                    family="outline",
+                    icon_color="black",
+                    type="symbols",
+                ):
+                    st.metric(
+                        label="Extra patients thrombolysed per year",
+                        value=f"{additional_patients_thrombolysed_per_year:.0f}",
+                        border=True,
+                    )
+
+                    st.caption(
+                        "This looks at the average count of patients who were able to be offered thrombolysis due to the enhanced capabilities of the CTP scanner."
+                    )
+
+            col1c, col2c, col3c = st.columns(3)
+
+            with col1c:
                 with iconMetricContainer(
                     key="admission_delays",
                     icon_unicode="f38c",
@@ -625,12 +656,10 @@ if button_run_pressed:
                     )
 
                     st.caption(
-                        f"On average, {my_trial.df_trial_results['Number of Admission Delays'].mean():,.0f} admissions were delayed across the full model run of {(g.sim_duration / 60 / 24):.0f} days"
+                        f"On average, {my_trial.df_trial_results['Number of Admission Delays'].mean():,.0f} admissions were delayed across the full model run of {sim_duration_display}."
                     )
 
-            col1c, col2c = st.columns(2)
-
-            with col1c:
+            with col2c:
                 with iconMetricContainer(
                     key="admission_delay_average",
                     icon_unicode="f38c",
@@ -644,7 +673,7 @@ if button_run_pressed:
                         border=True,
                     )
 
-            with col2c:
+            with col3c:
                 with iconMetricContainer(
                     key="admission_delay_max",
                     icon_unicode="f38c",

@@ -207,6 +207,10 @@ class Model:
         self.stroke_mimic_patient_count = 0
         self.non_stroke_patient_count = 0
 
+        # Add a count of patients who were able to be thrombolysed due to the use of the CT
+        # perfusion scanner but otherwise would not have been able to be thrombolysed
+        self.additional_thrombolysis_from_ctp = 0
+
         self.initialise_distributions()
 
     def is_in_hours(self, time_of_day):
@@ -838,6 +842,7 @@ class Model:
             and patient.mrs_type > 0
         ):
             patient.thrombolysis = True
+            self.additional_thrombolysis_from_ctp += 1
 
         # Thrombolysis status is added to the DF, this is mainly used to check
         # if it is being applied correctly.

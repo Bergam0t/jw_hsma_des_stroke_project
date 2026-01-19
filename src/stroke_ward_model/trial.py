@@ -65,6 +65,9 @@ class Trial:
         self.df_trial_results["Number of TIA patients"] = [0.0]
         self.df_trial_results["Number of Stroke Mimic patients"] = [0.0]
         self.df_trial_results["Number of Non-Stroke patients"] = [0.0]
+        self.df_trial_results[
+            "Mean Additional Thrombolysed Patients From CTP Running"
+        ] = [0.0]
         self.df_trial_results.set_index("Run Number", inplace=True)
 
         self.ward_occupancy_audits = []
@@ -147,6 +150,7 @@ class Trial:
                 my_model.tia_patients_count,
                 my_model.stroke_mimic_patient_count,
                 my_model.non_stroke_patient_count,
+                my_model.additional_thrombolysis_from_ctp,
             ]
 
             # self.patient_objects[run] = my_model.patient_objects
@@ -204,6 +208,10 @@ class Trial:
             ("trial_total_savings", "Total Savings"),
             ("trial_mrs_change", "Mean MRS Change"),
             ("trial_patient_count", "Mean Number of Patients Assessed"),
+            (
+                "trial_additional_thrombolysis_from_ctp",
+                "Mean Additional Thrombolysed Patients From CTP Running",
+            ),
         ]:
             # Checks to see if the attribute already exists and if it doesn't
             # create it. Creates a mean of each trial and creates a dictionary
@@ -285,4 +293,8 @@ class Trial:
         print(
             f"Mean Assessed Patients:                    \
               {g.trial_patient_count[g.trials_run_counter]}"
+        )
+        print(
+            f"Mean Additional Thrombolysed Patients From CTP Running:                    \
+              {g.trial_additional_thrombolysis_from_ctp[g.trials_run_counter]}"
         )
