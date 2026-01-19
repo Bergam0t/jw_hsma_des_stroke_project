@@ -25,7 +25,7 @@ def plot_occupancy(
     resampled = []
 
     for run, g in occupancy_df.sort_values("Days").groupby("run"):
-        g = g.set_index("Days")[["Ward Occupancy"]]
+        g = g.set_index("Days")[["Occupancy"]]
         g = g.reindex(grid_days, method="ffill")
         g["run"] = run
         g = g.reset_index(names="Days")
@@ -33,11 +33,11 @@ def plot_occupancy(
 
     grid_df = pd.concat(resampled, ignore_index=True)
 
-    mean_df = grid_df.groupby("Days", as_index=False)["Ward Occupancy"].mean()
+    mean_df = grid_df.groupby("Days", as_index=False)["Occupancy"].mean()
 
     if plot_confidence_intervals:
         summary_df = (
-            grid_df.groupby("Days")["Ward Occupancy"]
+            grid_df.groupby("Days")["Occupancy"]
             .agg(
                 min="min",
                 p10=lambda x: x.quantile(0.1),
@@ -140,23 +140,23 @@ def plot_occupancy(
 
         occupancy_fig.update_layout(
             xaxis_title="Days",
-            yaxis_title="Ward occupancy",
+            yaxis_title="Occupancy",
         )
 
     else:
         mean_df["rolling_mean_7"] = (
-            mean_df["Ward Occupancy"].rolling(window=7, center=True).mean()
+            mean_df["Occupancy"].rolling(window=7, center=True).mean()
         )
 
         # Create a line plot with one line per
-        occupancy_fig = px.line(occupancy_df, x="Days", y="Ward Occupancy", color="run")
+        occupancy_fig = px.line(occupancy_df, x="Days", y="Occupancy", color="run")
 
         occupancy_fig.update_traces(opacity=0.3)
 
         # Add mean line
         occupancy_fig.add_scatter(
             x=mean_df["Days"],
-            y=mean_df["Ward Occupancy"],
+            y=mean_df["Occupancy"],
             mode="lines",
             name="Mean across runs",
             line=dict(width=2, color="black"),
@@ -178,4 +178,4 @@ def plot_occupancy(
         line_color="red",
     )
 
-    return st.plotly_chart(occupancy_fig)
+    return occupancy_fig
