@@ -692,42 +692,117 @@ if button_run_pressed:
 
                 st.caption("This looks at the maximum delay seen across all model runs")
 
+            col1e, col2e = st.columns(2)
+
+            with col1e:
+                patients_inside_sdec_operating_hours = (
+                    patient_df[patient_df["sdec_running_when_required"] == True]
+                    .groupby("run")
+                    .size()
+                    .mean()
+                )
+
+                patients_inside_sdec_operating_hours_per_year = (
+                    patients_inside_sdec_operating_hours / (g.sim_duration / 60 / 24)
+                ) * 365
+
+                patients_outside_sdec_operating_hours_per_year = (
+                    average_patients_per_year
+                    - patients_inside_sdec_operating_hours_per_year
+                )
+
+                with iconMetricContainer(
+                    key="arrive_outside_sdec_operating_hours",
+                    icon_unicode="f38c",
+                    family="outline",
+                    icon_color="black",
+                    type="symbols",
+                ):
+                    st.metric(
+                        label="Average Patients Arriving Outside of SDEC Operating Hours",
+                        value=f"{patients_outside_sdec_operating_hours_per_year:.0f} of {average_patients_per_year:.0f} ({(patients_outside_sdec_operating_hours_per_year / average_patients_per_year):.1%})",
+                        border=True,
+                    )
+
+                    st.caption(
+                        "This looks at the average count of patients who were unable to be routed to SDEC after their CT or CTP scan due to SDEC being shut."
+                    )
+
+            with col2e:
+                patients_sdec_full = (
+                    patient_df[patient_df["sdec_full_when_required"] == True]
+                    .groupby("run")
+                    .size()
+                    .mean()
+                )
+
+                patients_sdec_full_per_year = (
+                    patients_sdec_full / (g.sim_duration / 60 / 24)
+                ) * 365
+
+                with iconMetricContainer(
+                    key="arrive_sdec_is_full",
+                    icon_unicode="f38c",
+                    family="outline",
+                    icon_color="black",
+                    type="symbols",
+                ):
+                    st.metric(
+                        label="Patients Bypassing SDEC Due to it Being Full",
+                        value=f"{patients_sdec_full_per_year:.0f} of {patients_inside_sdec_operating_hours_per_year:.0f} ({(patients_sdec_full_per_year / patients_inside_sdec_operating_hours_per_year):.1%})",
+                        border=True,
+                    )
+
+                    st.caption(
+                        "This looks at the average count across all runs of patients arriving in SDEC during its open hours who had to be routed directly to a ward due to the SDEC being full."
+                    )
+
         with tab2:
-            st.subheader("Ward Occupancy Over Time")
 
-            plot_occupancy(
-                occupancy_df=my_trial.occupancy_df,
-                total_sim_duration_days=warm_up_duration_days + sim_duration_days,
-                warm_up_duration_days=warm_up_duration_days,
-                plot_confidence_intervals=True,
-            )
+            @st.fragment
+            def generate_occupancy_plots():
+                conf_intervals = st.toggle("Show Confidence Intervals", value=True)
+                st.subheader("Ward Occupancy Over Time")
 
-            with st.expander("Click to view detailed result tables"):
-                st.subheader("Full Per-Run Results for Trial")
+                ward_occupancy_fig = plot_occupancy(
+                    occupancy_df=my_trial.ward_occupancy_df,
+                    total_sim_duration_days=warm_up_duration_days + sim_duration_days,
+                    warm_up_duration_days=warm_up_duration_days,
+                    plot_confidence_intervals=conf_intervals,
+                )
 
-                st.dataframe(my_trial.df_trial_results.T)
+                st.plotly_chart(ward_occupancy_fig)
 
-                st.subheader("Full Per-Patient Results for Trial (Including Warm-Up)")
+                st.subheader("SDEC Occupancy Over Time")
+                sdec_occupancy_fig = plot_occupancy(
+                    occupancy_df=my_trial.sdec_occupancy_df,
+                    total_sim_duration_days=warm_up_duration_days + sim_duration_days,
+                    warm_up_duration_days=warm_up_duration_days,
+                    plot_confidence_intervals=conf_intervals,
+                )
 
-                st.dataframe(my_trial.trial_patient_df)
+                st.plotly_chart(sdec_occupancy_fig)
 
-                st.subheader("Ward Occupancy Audits")
+                with st.expander("Click to view detailed result tables"):
+                    st.subheader("Full Per-Run Results for Trial")
 
-                st.dataframe(my_trial.occupancy_df)
+                    st.dataframe(my_trial.df_trial_results.T)
 
-        #########################
-        # MARK: Animation       #
-        #########################
-        with tab3:
-            # This needs to receive the full dataframe, including patients generated
-            # before the warm-up period elapsed
-            event_log = convert_event_log(my_trial.trial_patient_df)
+                    st.subheader(
+                        "Full Per-Patient Results for Trial (Including Warm-Up)"
+                    )
 
-            # st.write("Event Log")
-            # st.write(event_log)
-            # st.plotly_chart(create_vidigi_animation_advanced(event_log, scenario=g()))
+                    st.dataframe(my_trial.trial_patient_df)
 
-            st.write(create_vidigi_animation(event_log, scenario=g()))
+                    st.subheader("Ward Occupancy Audits")
+
+                    st.dataframe(my_trial.ward_occupancy_df)
+
+                    st.subheader("SDEC Occupancy Audits")
+
+                    st.dataframe(my_trial.sdec_occupancy_df)
+
+            generate_occupancy_plots()
 
         ##############################
         #  MARK: Process Maps (DFGs) #

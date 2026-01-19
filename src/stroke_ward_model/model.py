@@ -187,14 +187,20 @@ class Model:
         # A list to store the number of patients avoiding admission
         self.non_admissions = []
 
-        self.occupancy_graph_df = pd.DataFrame()
-        self.occupancy_graph_df["Time"] = [0.0]
-        self.occupancy_graph_df["Ward Occupancy"] = [0.0]
-        self.occupancy_graph_df["During Warm-Up"] = True
+        self.ward_occupancy_graph_df = pd.DataFrame()
+        self.ward_occupancy_graph_df["Time"] = [0.0]
+        self.ward_occupancy_graph_df["Occupancy"] = [0.0]
+        self.ward_occupancy_graph_df["During Warm-Up"] = True
+
+        self.sdec_occupancy_graph_df = pd.DataFrame()
+        self.sdec_occupancy_graph_df["Time"] = [0.0]
+        self.sdec_occupancy_graph_df["Occupancy"] = [0.0]
+        self.sdec_occupancy_graph_df["During Warm-Up"] = True
 
         # A list to store the patient objects
         self.patient_objects = []
 
+        # Add counts for each type of stroke patient to cross-check with this in other places
         self.i_patients_count = 0
         self.ich_patients_count = 0
         self.tia_patients_count = 0
@@ -533,7 +539,7 @@ class Model:
                 trace(
                     time=self.env.now,
                     debug=g.show_trace,
-                    msg=f"🏥 SDEC CLOSES at {minutes_to_ampm(int(self.env.now % 1440))}",
+                    msg=f"🏥 SDEC CLOSES at {minutes_to_ampm(int(self.env.now % 1440))}. Occupancy at closure: {len(self.sdec_occupancy)} of {g.sdec_beds} beds.",
                     identifier=self.patient_counter,
                     config=g.trace_config,
                 )
@@ -546,7 +552,7 @@ class Model:
                 trace(
                     time=self.env.now,
                     debug=g.show_trace,
-                    msg=f"🏥 SDEC OPENS at {minutes_to_ampm(int(self.env.now % 1440))}",
+                    msg=f"🏥 SDEC OPENS at {minutes_to_ampm(int(self.env.now % 1440))}. Occupancy at opening: {len(self.sdec_occupancy)} of {g.sdec_beds} beds.",
                     identifier=self.patient_counter,
                     config=g.trace_config,
                 )
@@ -855,13 +861,14 @@ class Model:
 
         if g.sdec_unav:
             patient.sdec_running_when_required = False
+            patient.sdec_full_when_required = False
         else:
             patient.sdec_running_when_required = True
 
-        if len(self.sdec_occupancy) < g.sdec_beds:
-            patient.sdec_full_when_required = False
-        else:
-            patient.sdec_full_when_required = True
+            if len(self.sdec_occupancy) < g.sdec_beds:
+                patient.sdec_full_when_required = False
+            else:
+                patient.sdec_full_when_required = True
 
         # SR: Note that I have changed the check from <= to < (so that patients are only allowed
         # to request a bed when a bed is free)
@@ -897,6 +904,22 @@ class Model:
                     self.results_df.at[patient.id, "SDEC Occupancy"] = len(
                         self.sdec_occupancy
                     )
+
+                    self.sdec_occupancy_graph_df.loc[
+                        len(self.sdec_occupancy_graph_df)
+                    ] = [
+                        self.env.now,
+                        len(self.sdec_occupancy),
+                        False,
+                    ]
+                else:
+                    self.sdec_occupancy_graph_df.loc[
+                        len(self.sdec_occupancy_graph_df)
+                    ] = [
+                        self.env.now,
+                        len(self.sdec_occupancy),
+                        True,
+                    ]
 
                 patient.sdec_pathway = True
 
@@ -1126,13 +1149,17 @@ class Model:
                     )
 
                 if self.env.now > g.warm_up_period:
-                    self.occupancy_graph_df.loc[len(self.occupancy_graph_df)] = [
+                    self.ward_occupancy_graph_df.loc[
+                        len(self.ward_occupancy_graph_df)
+                    ] = [
                         self.env.now,
                         len(self.ward_occupancy),
                         False,
                     ]
                 else:
-                    self.occupancy_graph_df.loc[len(self.occupancy_graph_df)] = [
+                    self.ward_occupancy_graph_df.loc[
+                        len(self.ward_occupancy_graph_df)
+                    ] = [
                         self.env.now,
                         len(self.ward_occupancy),
                         True,
@@ -1863,10 +1890,10 @@ class Model:
 
             # Ward Occupancy Graph
 
-            self.occupancy_graph_df.drop([0], inplace=True)
+            self.ward_occupancy_graph_df.drop([0], inplace=True)
 
-            occupancy_after_warm_up = self.occupancy_graph_df[
-                self.occupancy_graph_df["After Warm-Up"] == True
+            occupancy_after_warm_up = self.ward_occupancy_graph_df[
+                self.ward_occupancy_graph_df["After Warm-Up"] == True
             ]
 
             fig, ax = plt.subplots()

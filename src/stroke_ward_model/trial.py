@@ -67,8 +67,11 @@ class Trial:
         self.df_trial_results["Number of Non-Stroke patients"] = [0.0]
         self.df_trial_results.set_index("Run Number", inplace=True)
 
-        self.occupancy_audits = []
-        self.occupancy_df = pd.DataFrame()
+        self.ward_occupancy_audits = []
+        self.ward_occupancy_df = pd.DataFrame()
+
+        self.sdec_occupancy_audits = []
+        self.sdec_occupancy_df = pd.DataFrame()
 
         self.model_objects = []
         # self.patient_objects = {}
@@ -153,11 +156,15 @@ class Trial:
             patient_dataframe["run"] = run + 1
             self.trial_patient_dataframes.append(patient_dataframe)
 
-            my_model.occupancy_graph_df["run"] = run + 1
-            self.occupancy_audits.append(my_model.occupancy_graph_df)
+            my_model.ward_occupancy_graph_df["run"] = run + 1
+            self.ward_occupancy_audits.append(my_model.ward_occupancy_graph_df)
+
+            my_model.sdec_occupancy_graph_df["run"] = run + 1
+            self.sdec_occupancy_audits.append(my_model.sdec_occupancy_graph_df)
 
         self.trial_patient_df = pd.concat(self.trial_patient_dataframes)
-        self.occupancy_df = pd.concat(self.occupancy_audits)
+        self.ward_occupancy_df = pd.concat(self.ward_occupancy_audits)
+        self.sdec_occupancy_df = pd.concat(self.sdec_occupancy_audits)
 
         if g.write_to_csv == True:
             self.df_trial_results.to_csv(
