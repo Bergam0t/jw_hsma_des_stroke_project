@@ -45,6 +45,11 @@ This is a reduced environment used by the hosted web app version on Streamlit co
 
 This environment will need to be manually updated when making changes to the requirements.txt in the root of the folder.
 
+## Changelog
+
+Please note all changes made to the code in the file `docs/CHANGELOG.md`.
+
+
 ## Documentation
 
 The documentation site is provided using mkdocs-material and mkdocstrings.
@@ -52,6 +57,8 @@ The documentation site is provided using mkdocs-material and mkdocstrings.
 It can be accessed at [sammirosser.com/jw_hsma_des_stroke_project/](http://sammirosser.com/jw_hsma_des_stroke_project/)
 
 ### Updating the Documentation
+
+The changelog will automatically be pulled into the documentation.
 
 Additional pages can be written in markdown and placed into the docs folder.
 

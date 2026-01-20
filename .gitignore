@@ -1,9 +1,6 @@
 # Files for Git to ignore
 trial * output *.csv
-
-
 trial * trial results.csv
-
 all_trial_results.csv
 
 .DS_Store
@@ -11,6 +8,13 @@ all_trial_results.csv
 stroke_ward_model.egg-info
 .venv
 *.pyc
+
 checklists/~$stress_des.xlsx
+
 tests/exp_results/df_patient_log_test_comparison.parquet
 tests/exp_results/df_trial_results_test_comparison.parquet
+
+input_data/*
+!input_data/.gitkeep
+
+preprocessing/*.csv
