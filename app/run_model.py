@@ -477,11 +477,14 @@ if button_run_pressed:
                 )
 
                 st.dataframe(
-                    patient_diagnosis_by_stroke_type_count_per_year.rename(
-                        columns={
-                            "patient_diagnosis_type": "Diagnosis",
-                            "mean_patients_per_run": "Count",
-                        }
+                    round(
+                        patient_diagnosis_by_stroke_type_count_per_year.rename(
+                            columns={
+                                "patient_diagnosis_type": "Diagnosis",
+                                "mean_patients_per_run": "Count",
+                            }
+                        ),
+                        0,
                     ),
                     hide_index=True,
                 )
@@ -804,6 +807,10 @@ if button_run_pressed:
                         "This looks at the average count across all runs of patients arriving in SDEC during its open hours who had to be routed directly to a ward due to the SDEC being full."
                     )
 
+            st.subheader("Full Per-Run Results for Trial")
+
+            st.dataframe(my_trial.df_trial_results.T)
+
         with tab2:
 
             @st.fragment
@@ -1031,4 +1038,5 @@ if button_run_pressed:
             # st.write(event_log)
             # st.plotly_chart(create_vidigi_animation_advanced(event_log, scenario=g()))
 
-            st.write(create_vidigi_animation(event_log, scenario=g()))
+            # st.write(create_vidigi_animation(event_log, scenario=g()))
+            st.write("Coming Soon!")
