@@ -872,6 +872,57 @@ class Model:
         if self.env.now > g.warm_up_period:
             self.results_df.at[patient.id, "Thrombolysis"] = patient.thrombolysis
 
+        ####################################
+        # Admission avoidance - non-stroke #
+        ####################################
+        # This code applies a non stroke admission avoidance variable to the
+        # patient.
+        # For patients who have TIA, non-stroke or stroke mimic, they may be able
+        # to avoid admission even if this is prior to SDEC
+
+        # TODO: SR: Confirm why this appeared twice in the original model (and still does here)
+        # and whether it should only be checked once (prior to SDEC admission) or twice
+
+        self.tia_admission_chance = self.tia_admission_chance_distribution.sample()
+
+        self.stroke_mimic_admission_chance = (
+            self.stroke_mimic_admission_chance_distribution.sample()
+        )
+
+        if (
+            patient.non_admission >= self.tia_admission_chance
+            and patient.patient_diagnosis == 2
+        ):
+            # TODO: SR: I've temporarily commented out admission avoidance here and replaced it
+            # with a bespoke flag
+            # patient.admission_avoidance = True
+            patient.non_admitted_tia_ns_sm = True
+            trace(
+                time=self.env.now,
+                debug=g.show_trace,
+                msg=f"↩️ TIA Patient {patient.id} avoided admission.",
+                identifier=patient.id,
+                config=g.trace_config,
+            )
+
+        elif (
+            patient.non_admission >= self.stroke_mimic_admission_chance
+            and patient.patient_diagnosis > 2
+        ):
+            # TODO: SR: I've temporarily commented out admission avoidance here and replaced it
+            # with a bespoke flag
+            # patient.admission_avoidance = True
+            patient.non_admitted_tia_ns_sm = True
+            trace(
+                time=self.env.now,
+                debug=g.show_trace,
+                msg=f"↩️ Stroke mimic or non-stroke Patient {patient.id} (diagnosis {patient.diagnosis}) avoided admission.",
+                identifier=patient.id,
+                config=g.trace_config,
+            )
+        else:
+            patient.non_admitted_tia_ns_sm = False
+
         #########################
         # MARK: SDEC Admission
         #########################
@@ -899,7 +950,16 @@ class Model:
 
         # SR: Note that I have changed the check from <= to < (so that patients are only allowed
         # to request a bed when a bed is free)
-        if g.sdec_unav == False and len(self.sdec_occupancy) < g.sdec_beds:
+        if (
+            g.sdec_unav == False
+            and len(self.sdec_occupancy) < g.sdec_beds
+            and (
+                # SR: TODO: Note that I've temporarily commented out the admission avoidance check
+                # and swapped it for checking against a new bespoke attribute
+                # patient.admission_avoidance == False or
+                patient.non_admitted_tia_ns_sm == False
+            )
+        ):
             # If the conditions above are met the patient attribute for the SDEC
             # are changed to True and the patient is added to the SDEC occupancy
             # list.
@@ -968,32 +1028,8 @@ class Model:
                         and patient.thrombolysis == False
                     ):
                         patient.admission_avoidance = True
-
-                # This code applies a non stroke admission avoidance variable to the
-                # patient.
-
-                # self.tia_admission_chance = random.normalvariate(g.tia_admission, 1)
-                self.tia_admission_chance = (
-                    self.tia_admission_chance_distribution.sample()
-                )
-                # self.stroke_mimic_admission_chance = random.normalvariate(
-                #     g.stroke_mimic_admission, 1
-                # )
-                self.stroke_mimic_admission_chance = (
-                    self.stroke_mimic_admission_chance_distribution.sample()
-                )
-
-                if (
-                    patient.non_admission >= self.tia_admission_chance
-                    and patient.patient_diagnosis == 2
-                ):
-                    patient.admission_avoidance = True
-
-                elif (
-                    patient.non_admission >= self.stroke_mimic_admission_chance
-                    and patient.patient_diagnosis > 2
-                ):
-                    patient.admission_avoidance = True
+                else:
+                    patient.admission_avoidance = False
 
                 # Calculate SDEC stay time from exponential
                 # sampled_sdec_stay_time = random.expovariate(1.0 / g.mean_n_sdec_time)
@@ -1046,6 +1082,7 @@ class Model:
             # This code add information regarding the patients admission avoidance.
 
             if patient.admission_avoidance == True and patient.patient_diagnosis < 2:
+                # Update savings value in model results
                 if self.env.now > g.warm_up_period:
                     self.results_df.at[patient.id, "Admission Avoidance"] = (
                         patient.sdec_pathway
@@ -1068,6 +1105,8 @@ class Model:
                 patient.exit_time = self.env.now
                 patient.journey_completed = True
 
+                # Patients with a True admission avoidance are added to a list that is
+                # used to calculate the savings from the avoided admissions.
                 if (
                     patient.admission_avoidance == True
                     and patient.patient_diagnosis < 2
@@ -1075,19 +1114,12 @@ class Model:
                 ):
                     self.admission_avoidance.append(patient)
 
-                # Patients with a True admission avoidance are added to a list that is
-                # used to calculate the savings from the avoided admissions.
-
                 # This code introduces a small element of randomness into the admission
                 # rates for the non stroke, tia and stroke mimic patients.
-
-                # self.tia_admission_chance = random.normalvariate(g.tia_admission, 1)
                 self.tia_admission_chance = (
                     self.tia_admission_chance_distribution.sample()
                 )
-                # self.stroke_mimic_admission_chance = random.normalvariate(
-                #     g.stroke_mimic_admission, 1
-                # )
+
                 self.stroke_mimic_admission_chance = (
                     self.stroke_mimic_admission_chance_distribution.sample()
                 )
@@ -1102,7 +1134,10 @@ class Model:
                     patient.non_admission >= self.tia_admission_chance
                     and patient.patient_diagnosis == 2
                 ):
-                    patient.admission_avoidance = True
+                    # TODO: SR: I've temporarily commented out admission avoidance here and replaced it
+                    # with a bespoke flag
+                    # patient.admission_avoidance = True
+                    patient.non_admitted_tia_ns_sm = True
 
                     patient.exit_time = self.env.now
                     patient.journey_completed = True
@@ -1111,24 +1146,15 @@ class Model:
                     patient.non_admission >= self.stroke_mimic_admission_chance
                     and patient.patient_diagnosis > 2
                 ):
-                    patient.admission_avoidance = True
+                    # TODO: SR: I've temporarily commented out admission avoidance here and replaced it
+                    # with a bespoke flag
+                    # patient.admission_avoidance = True
+                    patient.non_admitted_tia_ns_sm = True
 
                     patient.exit_time = self.env.now
                     patient.journey_completed = True
-
-        # The below code records the patients diagnosis attribute, this is added
-        # to the DF to check the diagnosis code is working correctly.
-        # SR - refactored recording of diagnosis type in results df as that's now recorded
-        # as a patient attribute earlier
-        if self.env.now > g.warm_up_period:
-            self.results_df.at[patient.id, "Diagnosis Type"] = (
-                patient.patient_diagnosis_type
-            )
-            self.results_df.at[patient.id, "Onset Type"] = patient.onset_type
-
-            # This code adds the Patient's MRS to the DF, this can be used to check
-            # all code that interacts with this runs correctly.
-            self.results_df.at[patient.id, "MRS Type"] = patient.mrs_type
+        else:
+            patient.sdec_pathway = False
 
         # MARK: Ward Admission
         # once all the above code has been run all patients who will not admit
@@ -1143,7 +1169,11 @@ class Model:
         # is LOS increased by spending time on an 'inappropriate' ward in the real world, and if so,
         # does this need to be reflected here?
 
-        if patient.admission_avoidance != True:
+        # if patient.admission_avoidance != True:
+        if (
+            patient.admission_avoidance != True
+            or patient.non_admitted_tia_ns_sm == True
+        ):
             # These code assigns a time to the start q variable. In stroke care
             # delays can have serious consequence so modeling this is very
             # important as flow disruption are a common issue.
@@ -1817,6 +1847,10 @@ class Model:
 
         self.mean_los_ward = round(self.results_df["Ward LOS"].mean() / 60, 0)
 
+        # Note that this is using the admission avoidance MODEL attribute, which is populated
+        # entirely separately from the patient-level admission avoidance attributes and will
+        # ensure that only SDEC patients who are explicitly benefitting from admission avoidance
+        # via SDEC will be counted here
         self.sdec_financial_savings = (
             len(self.admission_avoidance) * g.inpatient_bed_cost
         )
