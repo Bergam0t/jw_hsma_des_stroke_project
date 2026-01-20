@@ -739,7 +739,10 @@ if button_run_pressed:
 
             with col1e:
                 patients_inside_sdec_operating_hours = (
-                    patient_df[(patient_df["sdec_running_when_required"] == True)]
+                    patient_df[
+                        (patient_df["sdec_running_when_required"] == True)
+                        & (patient_df["non_admitted_tia_ns_sm"] == False)
+                    ]
                     .groupby("run")
                     .size()
                     .mean()
@@ -762,13 +765,14 @@ if button_run_pressed:
                     type="symbols",
                 ):
                     st.metric(
-                        label="Average Patients Arriving Outside of SDEC Operating Hours",
-                        value=f"{patients_outside_sdec_operating_hours_per_year:.0f} of {average_patients_per_year:.0f} ({(patients_outside_sdec_operating_hours_per_year / average_patients_per_year):.1%})",
+                        label="Average Eligible Patients Outside of SDEC Operating Hours",
+                        # value=f"{patients_outside_sdec_operating_hours_per_year:.0f} of {average_patients_per_year:.0f} ({(patients_outside_sdec_operating_hours_per_year / average_patients_per_year):.1%})",
+                        value=f"{patients_outside_sdec_operating_hours_per_year:.0f}",
                         border=True,
                     )
 
                     st.caption(
-                        "This looks at the average count of patients who were unable to be routed to SDEC after their CT or CTP scan due to SDEC being shut."
+                        "This looks at the average count of patients who were unable to be routed to SDEC after their CT or CTP scan due to SDEC being shut. This excludes any TIA, stroke mimic or non-stroke patients who left the model immediately after their scan."
                     )
 
             with col2e:
