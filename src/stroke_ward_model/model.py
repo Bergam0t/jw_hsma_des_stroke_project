@@ -854,7 +854,7 @@ class Model:
         ):
             patient.thrombolysis = True
 
-        if (
+        elif (
             patient.patient_diagnosis == 1
             and patient.onset_type == 1
             and patient.advanced_ct_pathway == True
@@ -862,6 +862,9 @@ class Model:
         ):
             patient.thrombolysis = True
             self.additional_thrombolysis_from_ctp += 1
+
+        else:
+            patient.thrombolysis = False
 
         # Thrombolysis status is added to the DF, this is mainly used to check
         # if it is being applied correctly.
