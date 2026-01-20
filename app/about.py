@@ -1,8 +1,8 @@
 import streamlit_mermaid as stmd
 import streamlit as st
+from app_utils import read_file_contents
 
 st.set_page_config(layout="wide")
-
 
 with open("app/resources/style.css") as css:
     st.markdown(f"<style>{css.read()}</style>", unsafe_allow_html=True)
@@ -12,44 +12,7 @@ tab1, tab2, tab3 = st.tabs(
 )
 
 with tab1:
-    diagram = """
-flowchart TB
-    A["In-hours admissions"] --> n12["Patient Generated"]
-    B["Nurse Triage"] --> C(["Is the CTP perfusion scanner open?"])
-    C -- Yes --> n2["CTP Scan <br>(Advanced Scan)"]
-    C -- No --> n3["CT Scan"]
-    n2 --> n4(["Patient has Ischaemic Stroke <br>AND rankin score on presentation is 1 or above"]) & n18(["Patient has other kind of stroke or no stroke<br>OR Rankin score is 0<br>OR Onset time not known or CTP scan not available"])
-    n3 --> n5(["Patient has Ischaemic Stroke<br>AND rankin score on presentation is 1 or above <br><b>AND onset time is known</b>"]) & n18
-    n6(["Is SDEC open?"]) -- Yes --> n7(["Is a bed available in SDEC?"])
-    n7 -- Yes --> n8["Admit to SDEC"]
-    n7 -- No --> n9["Admit to Ward"]
-    n6 -- No --> n9
-    n9 --> n11["Discharge"]
-    n8 --> n9
-    n8 -- If goes directly from SDEC to discharge, </br>considered an 'avoided admission' --> n11
-    n1["Out-of-hours admissions (less frequent)"] --> n12
-    n12 --> B
-    n12 -.- n13["<b>Mean Rankin Score on Presentation <br></b><br>0 least disabled<br>5 most disabled"] & n14["<b>Stroke Onset Type<br></b><br>Known<br>OR Unknown but in CT window<br>OR unknown and outside CT window"]
-    n15["<b>Patient Diagnosis<br></b><br>Intracerebral Haemorrhage<br>OR Ischaemic Strke<br>OR Transient Ischaemic Attach<br>OR Stroke Mimic<br>OR Non-Stroke"] -.- n12
-    n16["Triage Priority <br><br>Not currently used"] -.- n12
-    n4 --> n17["Thrombolyse<br><br>Reduces LOS by a defined factor"]
-    n5 --> n17
-    n17 --> n6
-    n18 --> n6
-
-    style C fill:#FFF9C4
-    style n4 fill:#FFF9C4
-    style n18 fill:#FFF9C4
-    style n5 fill:#FFF9C4
-    style n6 fill:#FFF9C4
-    style n7 fill:#FFF9C4
-    style n13 fill:#C8E6C9
-    style n14 fill:#C8E6C9
-    style n15 fill:#C8E6C9
-    style n16 fill:#C8E6C9
-    """
-
-    stmd.st_mermaid(diagram)
+    stmd.st_mermaid(read_file_contents("docs/diagrams/pathway_diagram.mmd"))
 
 with tab2:
     st.header("Key Stroke Pathway Information")
@@ -74,3 +37,27 @@ It also results in a higher dose of radition being applied to patients, so its u
 """)
 
     st.subheader("What is the modified Rankin scale (mRS)?")
+
+    st.write("Coming Soon!")
+
+    st.subheader(
+        "Why can't thrombolysed patients be considered for admission avoidance?"
+    )
+
+    st.write("Coming Soon!")
+
+    st.subheader(
+        "Why can't thrombolysed patients be considered for admission avoidance?"
+    )
+
+    st.write("Coming Soon!")
+
+with tab3:
+    st.header("Where can I find technical details about the model?")
+
+    # Link to the documentation and STRESS guidance within documentation
+    st.write("Coming Soon!")
+
+    st.header("Can I adapt and use the model with my own trust?")
+
+    st.write("Coming Soon!")
