@@ -180,15 +180,6 @@ with st.sidebar:
     ###############################
     st.subheader("Demand")
 
-    upscale_pct = st.slider(
-        "Upscale demand by percentage (%)",
-        min_value=0,
-        max_value=100,
-        value=0,
-        help="Reduces inter-arrival time to increase total patient volume.",
-    )
-    upscale_factor = 1 + (upscale_pct / 100)
-
     in_hours_demand_start = st.time_input(
         "What time does your in-hours demand start?", "07:00", step=60 * 60
     )
@@ -196,7 +187,7 @@ with st.sidebar:
     g.in_hours_start = in_hours_demand_start.hour
 
     in_hours_mean_iat = st.number_input(
-        "What is the average time (in minutes) between arrivals at the unit in-hours?",
+        "What is the current average time (in minutes) between arrivals at the unit in-hours?",
         min_value=1.0,
         max_value=5000.0,
         value=200.0,
@@ -209,7 +200,7 @@ with st.sidebar:
     g.ooh_start = out_of_hours_demand_start.hour
 
     out_of_hours_mean_iat = st.number_input(
-        "What is the average time (in minutes) between arrivals at the unit out-of-hours?",
+        "What is the current average time (in minutes) between arrivals at the unit out-of-hours?",
         min_value=1.0,
         max_value=5000.0,
         value=666.67,
@@ -226,8 +217,20 @@ with st.sidebar:
     g.in_hours_start = in_hours_demand_start.hour
     g.ooh_start = out_of_hours_demand_start.hour
 
+    upscale_pct = st.slider(
+        "Upscale demand by percentage (%)",
+        min_value=0,
+        max_value=100,
+        value=0,
+        help="Reduces inter-arrival time to increase total patient volume.",
+    )
+    upscale_factor = 1 + (upscale_pct / 100)
+
     g.patient_inter_day = in_hours_mean_iat / upscale_factor
     g.patient_inter_night = out_of_hours_mean_iat / upscale_factor
+    if upscale_factor != 1:
+        st.caption(f"The new in-hours IAT is {g.patient_inter_day:.1f}")
+        st.caption(f"The new out-of-hours IAT is {g.patient_inter_night:.1f}")
 
     # Calculate Annual Volumes for display
     # Formula: (60 / Adjusted IAT) * Hours per day * 365.25
