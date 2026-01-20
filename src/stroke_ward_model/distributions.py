@@ -30,123 +30,49 @@ def initialise_distributions(self):
     self.ct_time_dist = Exponential(mean=g.mean_n_ct_time, random_seed=seeds[3])
     self.sdec_time_dist = Exponential(mean=g.mean_n_sdec_time, random_seed=seeds[4])
 
-    # self.i_ward_time_mrs_0_dist = Exponential(
-    #     mean=g.mean_n_i_ward_time_mrs_0, random_seed=seeds[5]
-    # )
-    # self.i_ward_time_mrs_1_dist = Exponential(
-    #     mean=g.mean_n_i_ward_time_mrs_1, random_seed=seeds[6]
-    # )
-    # self.i_ward_time_mrs_2_dist = Exponential(
-    #     mean=g.mean_n_i_ward_time_mrs_2, random_seed=seeds[7]
-    # )
-    # self.i_ward_time_mrs_3_dist = Exponential(
-    #     mean=g.mean_n_i_ward_time_mrs_3, random_seed=seeds[8]
-    # )
-    # self.i_ward_time_mrs_4_dist = Exponential(
-    #     mean=g.mean_n_i_ward_time_mrs_4, random_seed=seeds[9]
-    # )
-    # self.i_ward_time_mrs_5_dist = Exponential(
-    #     mean=g.mean_n_i_ward_time_mrs_5, random_seed=seeds[10]
-    # )
-
-    # self.ich_ward_time_mrs_0_dist = Exponential(
-    #     mean=g.mean_n_ich_ward_time_mrs_0, random_seed=seeds[11]
-    # )
-    # self.ich_ward_time_mrs_1_dist = Exponential(
-    #     mean=g.mean_n_ich_ward_time_mrs_1, random_seed=seeds[12]
-    # )
-    # self.ich_ward_time_mrs_2_dist = Exponential(
-    #     mean=g.mean_n_ich_ward_time_mrs_2, random_seed=seeds[13]
-    # )
-    # self.ich_ward_time_mrs_3_dist = Exponential(
-    #     mean=g.mean_n_ich_ward_time_mrs_3, random_seed=seeds[14]
-    # )
-    # self.ich_ward_time_mrs_4_dist = Exponential(
-    #     mean=g.mean_n_ich_ward_time_mrs_4, random_seed=seeds[15]
-    # )
-    # self.ich_ward_time_mrs_5_dist = Exponential(
-    #     mean=g.mean_n_ich_ward_time_mrs_5, random_seed=seeds[16]
-    # )
-
-    # self.tia_ward_time_dist = Exponential(
-    #     mean=g.mean_n_non_stroke_ward_time, random_seed=seeds[17]
-    # )
-    # self.non_stroke_ward_time_dist = Exponential(
-    #     mean=g.mean_n_tia_ward_time, random_seed=seeds[18]
-    # )
-
-    self.i_ward_time_mrs_0_dist = Gamma(
-        alpha=g.i_shape,
-        beta=g.mean_n_i_ward_time_mrs_0 / g.i_shape,
-        random_seed=seeds[5],
+    self.i_ward_time_mrs_0_dist = Exponential(
+        mean=g.mean_n_i_ward_time_mrs_0, random_seed=seeds[5]
     )
-    self.i_ward_time_mrs_1_dist = Gamma(
-        alpha=g.i_shape,
-        beta=g.mean_n_i_ward_time_mrs_1 / g.i_shape,
-        random_seed=seeds[6],
+    self.i_ward_time_mrs_1_dist = Exponential(
+        mean=g.mean_n_i_ward_time_mrs_1, random_seed=seeds[6]
     )
-    self.i_ward_time_mrs_2_dist = Gamma(
-        alpha=g.i_shape,
-        beta=g.mean_n_i_ward_time_mrs_2 / g.i_shape,
-        random_seed=seeds[7],
+    self.i_ward_time_mrs_2_dist = Exponential(
+        mean=g.mean_n_i_ward_time_mrs_2, random_seed=seeds[7]
     )
-    self.i_ward_time_mrs_3_dist = Gamma(
-        alpha=g.i_shape,
-        beta=g.mean_n_i_ward_time_mrs_3 / g.i_shape,
-        random_seed=seeds[8],
+    self.i_ward_time_mrs_3_dist = Exponential(
+        mean=g.mean_n_i_ward_time_mrs_3, random_seed=seeds[8]
     )
-    self.i_ward_time_mrs_4_dist = Gamma(
-        alpha=g.i_shape,
-        beta=g.mean_n_i_ward_time_mrs_4 / g.i_shape,
-        random_seed=seeds[9],
+    self.i_ward_time_mrs_4_dist = Exponential(
+        mean=g.mean_n_i_ward_time_mrs_4, random_seed=seeds[9]
     )
-    self.i_ward_time_mrs_5_dist = Gamma(
-        alpha=g.i_shape,
-        beta=g.mean_n_i_ward_time_mrs_5 / g.i_shape,
-        random_seed=seeds[10],
+    self.i_ward_time_mrs_5_dist = Exponential(
+        mean=g.mean_n_i_ward_time_mrs_5, random_seed=seeds[10]
     )
 
-    self.ich_ward_time_mrs_0_dist = Gamma(
-        alpha=g.ich_shape,
-        beta=g.mean_n_ich_ward_time_mrs_0 / g.ich_shape,
-        random_seed=seeds[11],
+    self.ich_ward_time_mrs_0_dist = Exponential(
+        mean=g.mean_n_ich_ward_time_mrs_0, random_seed=seeds[11]
     )
-    self.ich_ward_time_mrs_1_dist = Gamma(
-        alpha=g.ich_shape,
-        beta=g.mean_n_ich_ward_time_mrs_1 / g.ich_shape,
-        random_seed=seeds[12],
+    self.ich_ward_time_mrs_1_dist = Exponential(
+        mean=g.mean_n_ich_ward_time_mrs_1, random_seed=seeds[12]
     )
-    self.ich_ward_time_mrs_2_dist = Gamma(
-        alpha=g.ich_shape,
-        beta=g.mean_n_ich_ward_time_mrs_2 / g.ich_shape,
-        random_seed=seeds[13],
+    self.ich_ward_time_mrs_2_dist = Exponential(
+        mean=g.mean_n_ich_ward_time_mrs_2, random_seed=seeds[13]
     )
-    self.ich_ward_time_mrs_3_dist = Gamma(
-        alpha=g.ich_shape,
-        beta=g.mean_n_ich_ward_time_mrs_3 / g.ich_shape,
-        random_seed=seeds[14],
+    self.ich_ward_time_mrs_3_dist = Exponential(
+        mean=g.mean_n_ich_ward_time_mrs_3, random_seed=seeds[14]
     )
-    self.ich_ward_time_mrs_4_dist = Gamma(
-        alpha=g.ich_shape,
-        beta=g.mean_n_ich_ward_time_mrs_4 / g.ich_shape,
-        random_seed=seeds[15],
+    self.ich_ward_time_mrs_4_dist = Exponential(
+        mean=g.mean_n_ich_ward_time_mrs_4, random_seed=seeds[15]
     )
-    self.ich_ward_time_mrs_5_dist = Gamma(
-        alpha=g.ich_shape,
-        beta=g.mean_n_ich_ward_time_mrs_5 / g.ich_shape,
-        random_seed=seeds[16],
+    self.ich_ward_time_mrs_5_dist = Exponential(
+        mean=g.mean_n_ich_ward_time_mrs_5, random_seed=seeds[16]
     )
 
-    self.tia_ward_time_dist = Gamma(
-        alpha=g.tia_shape,
-        beta=g.mean_n_non_stroke_ward_time / g.tia_shape,
-        random_seed=seeds[17],
+    self.tia_ward_time_dist = Exponential(
+        mean=g.mean_n_non_stroke_ward_time, random_seed=seeds[17]
     )
-
-    self.non_stroke_ward_time_dist = Gamma(
-        alpha=g.non_stroke_shape,
-        beta=g.mean_n_tia_ward_time / g.non_stroke_shape,
-        random_seed=seeds[18],
+    self.non_stroke_ward_time_dist = Exponential(
+        mean=g.mean_n_tia_ward_time, random_seed=seeds[18]
     )
 
     # Patient Attribute Distributions
