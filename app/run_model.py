@@ -317,14 +317,13 @@ if button_run_pressed:
 
         # st.write(my_trial.trial_info)
 
-        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(
             [
                 "Overview",
                 "Output Graphs",
-                "Animation",
                 "Process Maps",
-                "Scenario Comparison",
                 "Model Exploration",
+                "Animation",
             ]
         )
 
@@ -350,8 +349,13 @@ if button_run_pressed:
                         border=True,
                     )
 
+                    start_hour = g.ctp_opening_hour
+                    duration_hours = ((24 * 60) - g.ctp_unav_time) / 60
+
+                    end_hour = (start_hour + duration_hours) % 24
+
                     st.caption(
-                        f"Available from {g.ctp_opening_hour} until {g.ctp_opening_hour + (((24 * 60) - g.ctp_unav_time) / 60)} ({(((24 * 60) - g.ctp_unav_time) / 60):.1f} hours)"
+                        f"Available from {start_hour:g} until {end_hour:g} ({duration_hours:.1f} hours)"
                     )
 
             with col2:
@@ -368,9 +372,17 @@ if button_run_pressed:
                         border=True,
                     )
 
-                    st.caption(
-                        f"Open from {g.sdec_opening_hour} until {g.sdec_opening_hour + (((24 * 60) - g.sdec_unav_time) / 60)} ({(((24 * 60) - g.sdec_unav_time) / 60):.1f} hours)"
-                    )
+                    if g.sdec_beds > 0:
+                        start_hour = g.sdec_opening_hour
+                        duration_hours = ((24 * 60) - g.sdec_unav_time) / 60
+
+                        end_hour = (start_hour + duration_hours) % 24
+
+                        st.caption(
+                            f"Available from {start_hour:g} until {end_hour:g} ({duration_hours:.1f} hours)"
+                        )
+                    else:
+                        st.caption("")
 
             with col3:
                 with iconMetricContainer(
@@ -624,7 +636,7 @@ if button_run_pressed:
 
                 with iconMetricContainer(
                     key="additional_thrombolysis",
-                    icon_unicode="f38c",
+                    icon_unicode="e138",
                     family="outline",
                     icon_color="black",
                     type="symbols",
@@ -662,7 +674,7 @@ if button_run_pressed:
             with col2c:
                 with iconMetricContainer(
                     key="admission_delay_average",
-                    icon_unicode="f38c",
+                    icon_unicode="e425",
                     family="outline",
                     icon_color="black",
                     type="symbols",
@@ -676,7 +688,7 @@ if button_run_pressed:
             with col3c:
                 with iconMetricContainer(
                     key="admission_delay_max",
-                    icon_unicode="f38c",
+                    icon_unicode="f377",
                     family="outline",
                     icon_color="black",
                     type="symbols",
@@ -694,7 +706,7 @@ if button_run_pressed:
             with col1d:
                 with iconMetricContainer(
                     key="nurse_delay_average",
-                    icon_unicode="f38c",
+                    icon_unicode="e425",
                     family="outline",
                     icon_color="black",
                     type="symbols",
@@ -708,7 +720,7 @@ if button_run_pressed:
             with col2d:
                 with iconMetricContainer(
                     key="nurse_delay_max",
-                    icon_unicode="f38c",
+                    icon_unicode="f377",
                     family="outline",
                     icon_color="black",
                     type="symbols",
@@ -742,7 +754,7 @@ if button_run_pressed:
 
                 with iconMetricContainer(
                     key="arrive_outside_sdec_operating_hours",
-                    icon_unicode="f38c",
+                    icon_unicode="e14b",
                     family="outline",
                     icon_color="black",
                     type="symbols",
@@ -771,7 +783,7 @@ if button_run_pressed:
 
                 with iconMetricContainer(
                     key="arrive_sdec_is_full",
-                    icon_unicode="f38c",
+                    icon_unicode="e7ef",
                     family="outline",
                     icon_color="black",
                     type="symbols",
@@ -836,7 +848,8 @@ if button_run_pressed:
         ##############################
         #  MARK: Process Maps (DFGs) #
         ##############################
-        with tab4:
+        with tab3:
+            event_log = convert_event_log(my_trial.trial_patient_df)
             event_log["event"] = event_log["event"].apply(
                 lambda x: x.replace("_time", "").replace("_", " ")
             )
@@ -937,17 +950,7 @@ if button_run_pressed:
 
             plot_dfg_per_feature()
 
-        with tab5:
-            st.write("Coming Soon")
-
-        with tab6:
-            plot_occupancy(
-                occupancy_df=my_trial.occupancy_df,
-                total_sim_duration_days=warm_up_duration_days + sim_duration_days,
-                warm_up_duration_days=warm_up_duration_days,
-                plot_confidence_intervals=False,
-            )
-
+        with tab4:
             ####################################
             # MARK: Flexible Plot of Variables #
             ####################################
@@ -1011,3 +1014,15 @@ if button_run_pressed:
                     )
 
             plot_histogram()
+
+        #########################
+        # MARK: Animation       #
+        #########################
+        with tab5:
+            # This needs to receive the full dataframe, including patients generated
+            # before the warm-up period elapsed
+            # st.write("Event Log")
+            # st.write(event_log)
+            # st.plotly_chart(create_vidigi_animation_advanced(event_log, scenario=g()))
+
+            st.write(create_vidigi_animation(event_log, scenario=g()))
