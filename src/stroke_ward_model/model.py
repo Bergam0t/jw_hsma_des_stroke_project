@@ -297,6 +297,8 @@ class Model:
                 p.arrived_ooh = False
                 if self.env.now < g.warm_up_period:
                     p.generated_during_warm_up = True
+                else:
+                    p.generated_during_warm_up = False
 
                 # Tell SimPy to start the stroke assessment function with
                 # this patient (the generator function that will model the
@@ -635,6 +637,21 @@ class Model:
             patient.patient_diagnosis_type = "Non Stroke"
             self.non_stroke_patient_count += 1
 
+        # The below code records the patients diagnosis attribute, this is added
+        # to the DF to check the diagnosis code is working correctly.
+        # SR - refactored recording of diagnosis type in results df as that's now recorded
+        # as a patient attribute earlier
+        if self.env.now > g.warm_up_period:
+            self.results_df.at[patient.id, "Diagnosis Type"] = (
+                patient.patient_diagnosis_type
+            )
+
+            self.results_df.at[patient.id, "Onset Type"] = patient.onset_type
+
+            # This code adds the Patient's MRS to the DF, this can be used to check
+            # all code that interacts with this runs correctly.
+            self.results_df.at[patient.id, "MRS Type"] = patient.mrs_type
+
         trace(
             time=self.env.now,
             debug=g.show_trace,
@@ -791,6 +808,8 @@ class Model:
                 identifier=patient.id,
                 config=g.trace_config,
             )
+
+            patient.advanced_ct_pathway = False
 
             patient.ct_scan_start_time = self.env.now
 
