@@ -52,3 +52,20 @@ def iconMetricContainer(
 
     iconMetric = stylable_container(key=key, css_styles=css_style_icon)
     return iconMetric
+
+
+def read_file_contents(file_name):
+    """'
+    Read the contents of a file.
+
+    Params:
+    ------
+    file_name: str
+        Path to file.
+
+    Returns:
+    -------
+    str
+    """
+    with open(file_name) as f:
+        return f.read()
