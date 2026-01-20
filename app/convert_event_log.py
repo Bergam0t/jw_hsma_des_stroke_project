@@ -60,54 +60,57 @@ EVENT_POSITION_DF = create_event_position_df(
 def convert_event_log(patient_df, run=1):
     patient_df_single_run = patient_df[patient_df["run"] == run]
 
-    patient_df_single_run_times = patient_df_single_run[
-        [
-            "id",
-            "patient_diagnosis_type",
-            "thrombolysis",
-            "admission_avoidance",
-            "arrived_ooh",
-            "advanced_ct_pathway",
-            "clock_start",
-            "nurse_q_start_time",
-            "nurse_triage_start_time",
-            "nurse_triage_end_time",
-            "ct_scan_start_time",
-            "ct_scan_end_time",
-            "ctp_scan_start_time",
-            "ctp_scan_end_time",
-            "sdec_admit_time",
-            "sdec_discharge_time",
-            "ward_q_start_time",
-            "ward_admit_time",
-            "ward_discharge_time",
-            "exit_time",
-        ]
-    ].copy()
+    cols = [
+        "id",
+        "patient_diagnosis_type",
+        "thrombolysis",
+        "admission_avoidance",
+        "arrived_ooh",
+        "advanced_ct_pathway",
+        "clock_start",
+        "nurse_q_start_time",
+        "nurse_triage_start_time",
+        "nurse_triage_end_time",
+        "ct_scan_start_time",
+        "ct_scan_end_time",
+        "ctp_scan_start_time",
+        "ctp_scan_end_time",
+        "sdec_admit_time",
+        "sdec_discharge_time",
+        "ward_q_start_time",
+        "ward_admit_time",
+        "ward_discharge_time",
+        "exit_time",
+    ]
+
+    patient_df_single_run_times = patient_df_single_run.reindex(columns=cols).copy()
 
     patient_df_single_run_ids = patient_df_single_run[
         ["id", "nurse_attending_id", "ct_scanner_id", "sdec_bed_id", "ward_bed_id"]
     ]
 
     # Fix people with no exit time - for our purposes, it just needs to be the max observed time in their row
-    row_max = patient_df_single_run_times[
-        [
-            "clock_start",
-            "nurse_q_start_time",
-            "nurse_triage_start_time",
-            "nurse_triage_end_time",
-            "ct_scan_start_time",
-            "ct_scan_end_time",
-            "ctp_scan_start_time",
-            "ctp_scan_end_time",
-            "sdec_admit_time",
-            "sdec_discharge_time",
-            "ward_q_start_time",
-            "ward_admit_time",
-            "ward_discharge_time",
-            "exit_time",
-        ]
-    ].max(axis=1)
+
+    cols_max = [
+        "clock_start",
+        "nurse_q_start_time",
+        "nurse_triage_start_time",
+        "nurse_triage_end_time",
+        "ct_scan_start_time",
+        "ct_scan_end_time",
+        "ctp_scan_start_time",
+        "ctp_scan_end_time",
+        "sdec_admit_time",
+        "sdec_discharge_time",
+        "ward_q_start_time",
+        "ward_admit_time",
+        "ward_discharge_time",
+        "exit_time",
+    ]
+
+    existing = patient_df_single_run_times.columns.intersection(cols_max)
+
+    row_max = patient_df_single_run_times[existing].max(axis=1)
 
     patient_df_single_run_times["exit_time"] = patient_df_single_run_times[
         "exit_time"
@@ -186,7 +189,7 @@ def create_vidigi_animation(
     event_log,
     scenario,
     event_position_df=EVENT_POSITION_DF,
-    snapshot_interval=20,
+    snapshot_interval=15,
     step_snapshot_max=100,
     entity_col_name="id",
     gap_between_resource_rows=50,
@@ -201,7 +204,9 @@ def create_vidigi_animation(
 
     warm_up_threshold = scenario.warm_up_period + (scenario.sdec_opening_hour * 60)
 
-    limit_duration = (scenario.sim_duration / 12) + (scenario.sdec_opening_hour * 60)
+    limit_duration = (scenario.sim_duration / 12 / 2) + (
+        scenario.sdec_opening_hour * 60
+    )
     limit_duration_inc_warmup = limit_duration + scenario.warm_up_period
 
     print(f"Limit duration: {limit_duration}")
@@ -280,9 +285,9 @@ def create_vidigi_animation(
         lambda x: "🚷" if x["patient_diagnosis_type"] == "Non Stroke" else x["icon"],
         axis=1,
     )
-    final_df["icon"] = final_df.apply(
-        lambda x: x["icon"] + "*" if x["admission_avoidance"] else x["icon"], axis=1
-    )
+    # final_df["icon"] = final_df.apply(
+    #     lambda x: x["icon"] + "*" if x["admission_avoidance"] else x["icon"], axis=1
+    # )
 
     fig = generate_animation(
         full_entity_df_plus_pos=final_df,
