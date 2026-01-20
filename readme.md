@@ -20,30 +20,29 @@ This model is parameterised using data from
 
 ## Environment setup
 
-Install environment using requirements.txt or environment.yml, found in the **environment** folder.
+Install the environment using `requirements.txt` or `environment.yml` (tested with Python 3.12.10), found in the `environment/` folder.
 
-This should automatically install the model code.
-However, if you receive errors about `stroke_ward_model` not being found, run `pip install . -e` while in the environment you created to install the model code.
+This should automatically install the model code. If you receive errors about `stroke_ward_model` not being found in the environment you created then run: `pip install -e .`
 
-The requirements.txt environment has been tested with Python 3.12.10
+**Note:** Legacy environments are also available in `win_environment/` and `mac_environment/`, but it is recommended that you use those provided in `environment/`.
+
+## Running the model
+
+To run the model via a script, with prompts for input variables, run the file `scripts/run_stroke_admission_model.py`.
 
 ## Web App
 
-The hosted web app is available at [stroke-des.streamlit.app/](https://stroke-des.streamlit.app/).
+It is possible to run the model via a script, but for easy access to model parameters and all results tables and outputs, it is recommended to use the web app interface.
 
-### Running the Web App locally
+The hosted web app is available at [stroke-des.streamlit.app/](https://stroke-des.streamlit.app/). If you are unable to install Python code locally, you can use this free hosted version of the app, though note it may run more slowly.
 
-To run the web app locally, ensure you have installed the environment as above, then open a terminal in the root of the repository and run the command `streamlit run app/streamlit_app.py`.
+To run the web app locally, you will need to install a separate environment provided in the `app/` folder. This is a reduced environment used by the hosted version of the web app on Streamlit Community Cloud. It does not install `mkdocs`, `pytest`, and other packages needed only for wider repository tasks. This `app/` environment must be manually updated whenever changes are made to the files in `environment/`.
 
-It is recommended to run the command above rather than moving into the `app` directory and running the streamlit command from there.
+Once the environment is installed, open a terminal in the root of the repository and run:
 
-### Web App Environment
-
-Note that a separate environment is made available in the folder app/
-
-This is a reduced environment used by the hosted web app version on Streamlit community cloud, which does not install mkdocs, pytest, and other similar packages that are used for wider repository tasks but not for running the web app.
-
-This environment will need to be manually updated when making changes to the requirements.txt in the root of the folder.
+```
+streamlit run app/streamlit_app.py
+```
 
 ## Changelog
 
