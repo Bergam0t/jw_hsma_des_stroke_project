@@ -160,30 +160,23 @@ class g:
     # TODO: SR - how are these determined? Assume historical data?
     # TODO: SR - what is suspected reason for MRS of 1 having lower LOS than MRS of 0 whether ICH or I?
 
-    mean_n_i_ward_time_mrs_0 = 1440 * 6
-    mean_n_i_ward_time_mrs_1 = 1440 * 4
-    mean_n_i_ward_time_mrs_2 = 1440 * 8
-    mean_n_i_ward_time_mrs_3 = 1440 * 11
-    mean_n_i_ward_time_mrs_4 = 1440 * 24
-    mean_n_i_ward_time_mrs_5 = 1440 * 29
+    mean_n_i_ward_time_mrs_0 = 1440 * 2.88
+    mean_n_i_ward_time_mrs_1 = 1440 * 4.54
+    mean_n_i_ward_time_mrs_2 = 1440 * 7.4
+    mean_n_i_ward_time_mrs_3 = 1440 * 14.14
+    mean_n_i_ward_time_mrs_4 = 1440 * 26.06
+    mean_n_i_ward_time_mrs_5 = 1440 * 29.7
 
-    mean_n_ich_ward_time_mrs_0 = 1440 * 5
-    mean_n_ich_ward_time_mrs_1 = 1440 * 4
-    mean_n_ich_ward_time_mrs_2 = 1440 * 5
-    mean_n_ich_ward_time_mrs_3 = 1440 * 17
-    mean_n_ich_ward_time_mrs_4 = 1440 * 36
-    mean_n_ich_ward_time_mrs_5 = 1440 * 36
-
-    # Set temporary shape parameters for gamma distribution
-    ich_shape = 1.5
-    i_shape = 2.0
+    mean_n_ich_ward_time_mrs_0 = 1440 * 2.62
+    mean_n_ich_ward_time_mrs_1 = 1440 * 7.03
+    mean_n_ich_ward_time_mrs_2 = 1440 * 12.15
+    mean_n_ich_ward_time_mrs_3 = 1440 * 18.91
+    mean_n_ich_ward_time_mrs_4 = 1440 * 32.45
+    mean_n_ich_ward_time_mrs_5 = 1440 * 41.83
 
     # Set parameters for mild (TIA) and non-stroke stays
     mean_n_non_stroke_ward_time = 1440 * 3  # 4320
     mean_n_tia_ward_time = 1440 * 1
-    # Set temporary shape parameters for gamma distribution
-    tia_shape = 3.0
-    non_stroke_shape = 4.0
 
     thrombolysis_los_save = 0.75
 
@@ -223,8 +216,8 @@ class g:
     sdec_opening_hour = 0
     ctp_opening_hour = 0
 
-    in_hours_start = 8
-    ooh_start = 20
+    in_hours_start = 7
+    ooh_start = 0
 
     # These values are changed by the model itself
 
@@ -238,7 +231,7 @@ class g:
     patient_arrival_gen_2 = False
 
     show_trace = False
-    tracked_cases = list(range(1, 50))
+    tracked_cases = list(range(1, 1500))
     trace_config = {"tracked": tracked_cases}
 
     master_seed = 42
