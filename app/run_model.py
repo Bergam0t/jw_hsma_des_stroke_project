@@ -418,9 +418,7 @@ if button_run_pressed:
                     # Blank lines for spacing
                     st.caption("")
 
-            average_patients_per_run = (
-                patient_df.groupby("run").count().mean().values[0]
-            )
+            average_patients_per_run = patient_df.groupby("run").size().mean()
 
             average_patients_per_year = (
                 average_patients_per_run / (g.sim_duration / 60 / 24)
@@ -622,7 +620,8 @@ if button_run_pressed:
                     )
 
                     st.caption(
-                        f"On average, {my_trial.df_trial_results['Number of Admissions Avoided In Run'].mean():,.0f} admissions were avoided across the full model run of {sim_duration_display}."
+                        f"On average, {my_trial.df_trial_results['Number of Admissions Avoided In Run'].mean():,.0f} admissions were avoided across the full model run of {sim_duration_display}. "
+                        "Avoided admissions are those patients who were able to leave after being seen in SDEC, and would have had a full admission if the SDEC was not available."
                     )
 
             with col3b:
@@ -737,7 +736,7 @@ if button_run_pressed:
 
             with col1e:
                 patients_inside_sdec_operating_hours = (
-                    patient_df[patient_df["sdec_running_when_required"] == True]
+                    patient_df[(patient_df["sdec_running_when_required"] == True)]
                     .groupby("run")
                     .size()
                     .mean()
@@ -905,13 +904,13 @@ if button_run_pressed:
                 else:
                     selected_facet_value = split_vars[selected_facet_var]
 
-                    if patient_df[selected_facet_value].nunique() > 3:
+                    if patient_df[selected_facet_value].nunique(dropna=False) > 3:
                         dfg_tabs = st.tabs(
                             [str(x) for x in patient_df[selected_facet_value].unique()]
                         )
                     else:
                         dfg_tabs = st.columns(
-                            patient_df[selected_facet_value].nunique()
+                            patient_df[selected_facet_value].nunique(dropna=False)
                         )
 
                     for idx, var in enumerate(

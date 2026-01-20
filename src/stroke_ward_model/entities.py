@@ -8,10 +8,13 @@ class Patient:
     Representation of an individual patient within the simulation.
 
     A `Patient` object stores all clinical, pathway, and state-related
-    attributes required for modelling flow through the stroke/TIA care
-    process. Several characteristics (onset type, MRS score, diagnosis
+    attributes required for modelling flow through the stroke care
+    process.
+
+    Several characteristics (onset type, MRS score, diagnosis
     category, admission likelihood) are randomly generated on creation
-    using parameters defined in the global configuration class `g`.
+    (or at the start of assessment) using parameters defined in the global
+    configuration class `g`.
 
     Parameters
     ----------
@@ -26,78 +29,146 @@ class Patient:
         Time spent waiting for nursing assessment or consultation.
     q_time_ward : float
         Time spent waiting for an inpatient ward bed.
-    onset_type : int
-        Categorisation of onset information:
+    onset_type : int or float
+        Categorisation of onset information (initialized as NaN):
         - 0 : Known onset
         - 1 : Unknown onset but within CTP window
         - 2 : Unknown onset and outside CTP window
-    mrs_type : int
+    mrs_type : int or float
         Modified Rankin Scale score at presentation (0–5).
         Drawn from an exponential distribution and capped at 5.
-    mrs_discharge : int
-        Modified Rankin Scale score at discharge (set later by the model).
-    diagnosis : int
+    mrs_discharge : int or float
+        Modified Rankin Scale score at discharge.
+    diagnosis : int or float
         Raw randomised diagnostic value (0–100). Used to map to a clinical
         category based on thresholds defined in `g`.
-    patient_diagnosis : int
+    patient_diagnosis : int or float
         Encoded diagnosis category:
         - 0 : Intracerebral haemorrhage (ICH)
         - 1 : Ischaemic stroke (I)
         - 2 : Transient ischaemic attack (TIA)
         - 3 : Stroke mimic
         - 4 : Non-stroke
+    patient_diagnosis_type : str or None
+        String representation or specific subtype of the diagnosis.
     priority : int
-        Triage priority level (used for queue ordering).
-    non_admission : int
+        Triage priority level (used for queue ordering). Default is 1.
+    non_admission : int or float
         Randomised admission likelihood score (0–100).
-    advanced_ct_pathway : bool
+    advanced_ct_pathway : bool or None
         Whether the patient enters an advanced CT imaging pathway.
-    sdec_pathway : bool
+    sdec_pathway : bool or None
         Whether the patient is routed through SDEC.
-    thrombolysis : bool
+    thrombolysis : bool or None
         Whether the patient receives thrombolysis.
-    thrombectomy : bool
+    thrombectomy : bool or None
         Whether the patient receives thrombectomy.
-    admission_avoidance : bool
+    admission_avoidance : bool or None
         Whether the patient avoids an admission by being seen in SDEC instead.
+    non_admitted_tia_ns_sm : bool or None
+        Flag indicating if a TIA, Non-Stroke, or Stroke Mimic patient was
+        not admitted.
+    ward_los : float
+        Total length of stay in the ward.
+    ward_los_thrombolysis : float
+        Specific length of stay component related to thrombolysis treatment.
+    sdec_los : float
+        Total length of stay in the Same Day Emergency Care (SDEC) unit.
+    ctp_duration : float
+        Time taken for CT Perfusion scan.
+    ct_duration : float
+        Time taken for standard CT scan.
+    arrived_ooh : bool or None
+        Flag indicating if the patient arrived Out of Hours.
+    clock_start : float
+        Simulation time of patient arrival.
+    nurse_q_start_time : float
+        Time patient joined the nurse queue.
+    nurse_triage_start_time : float
+        Time nurse triage began.
+    nurse_triage_end_time : float
+        Time nurse triage finished.
+    ct_or_ctp_scan_start_time : float
+        Time CT/CTP scan began.
+    ct_or_ctp_scan_end_time : float
+        Time CT/CTP scan finished.
+    sdec_admit_time : float
+        Time admitted to SDEC.
+    sdec_discharge_time : float
+        Time discharged from SDEC.
+    ward_q_start_time : float
+        Time patient joined the ward bed queue.
+    ward_admit_time : float
+        Time admitted to the ward.
+    ward_discharge_time : float
+        Time discharged from the ward.
+    exit_time : float
+        Time the patient left the simulation entirely.
+    nurse_attending_id : int or float
+        ID of the specific nurse resource assigned.
+    ct_scanner_id : int or float
+        ID of the specific CT scanner resource assigned.
+    sdec_bed_id : int or float
+        ID of the specific SDEC bed/cubicle assigned.
+    ward_bed_id : int or float
+        ID of the specific ward bed assigned.
+    sdec_running_when_required : bool or None
+        State of SDEC availability when the patient needed it.
+    sdec_full_when_required : bool or None
+        State of SDEC capacity when the patient needed it.
+    generated_during_warm_up : bool or None
+        Flag indicating if the patient was generated during the model warm-up period.
+    journey_completed : bool or None
+        Flag indicating if the patient completed the full pathway or was
+        removed/processed differently.
 
     Notes
     -----
     GENAI declaration (SR): this docstring has been generated with the aid
-    of ChatGPT 5.1.
+    of ChatGPT 5.1 and subsequently updated by Gemini to reflect code changes.
     All generated content has been thoroughly reviewed.
     """
 
     def __init__(self, p_id):
         self.id = p_id
+
         self.q_time_nurse = np.NaN  # SR NOTE - changed this to NaN by default
         self.q_time_ward = np.NaN  # SR NOTE - changed this to NaN by default
+
         # 0 = known onset, 1 = unknown onset (in ctp range), 2 = unknown (out of
         # ctp range)
         # SR NOTE: I've moved all random generation to the start of their assessment
         # to allow for reproducibility
         # self.onset_type = random.randint(0, 2)
         self.onset_type = np.NaN
+
         # Max MRS is set to 5
         # self.mrs_type = min(round(random.expovariate(1.0 / g.mean_mrs)), 5)
         self.mrs_type = np.NaN
         self.mrs_discharge = np.NaN  # SR NOTE - changed this to NaN by default
+
         # <=5 is ICH, <=55 is I, <= 70 is TIA, <=85 is Stroke Mimic, >85 is non\
         # stroke, this set in g class
-        # TODO: SR: This does not appear to be in sync with actual values seen in the g class
+        # TODO: SR: This comment does not appear to be in sync with actual values seen in the g class
         # TODO: SR: Which is correct?
         # self.diagnosis = random.randint(0, 100)
         self.diagnosis = np.NaN
         # 0 = ICH, 1 = I, 2 = TIA, 3 = Stroke Mimic, 4 = non stroke
         self.patient_diagnosis = np.NaN  # SR NOTE - changed this to NaN by default
+        self.patient_diagnosis_type = "None"
+
         self.priority = 1
         # self.non_admission = random.randint(0, 100)
         self.non_admission = np.NaN
-        self.advanced_ct_pathway = False
-        self.sdec_pathway = False
-        self.thrombolysis = False
-        self.thrombectomy = False
-        self.admission_avoidance = False
+
+        self.advanced_ct_pathway = None
+        self.sdec_pathway = None
+
+        self.thrombolysis = None
+        self.thrombectomy = None
+
+        self.admission_avoidance = None
+        self.non_admitted_tia_ns_sm = None
 
         # NOTE: Additional items added by SR
         self.ward_los = np.NaN
@@ -105,22 +176,25 @@ class Patient:
         self.sdec_los = np.NaN
         self.ctp_duration = np.NaN
         self.ct_duration = np.NaN
-        self.arrived_ooh = False
-        self.generated_during_warm_up = False
-        self.patient_diagnosis_type = None
 
-        # Recording times of various events for animations
+        self.arrived_ooh = None
+
+        # Recording times of various events for animations and process logs
         self.clock_start = np.NaN  # This can be considered to be their arrival time
 
         self.nurse_q_start_time = np.NaN
         self.nurse_triage_start_time = np.NaN
         self.nurse_triage_end_time = np.NaN
 
-        self.ct_or_ctp_scan_start_time = np.NaN
-        self.ct_or_ctp_scan_end_time = np.NaN
+        self.ct_scan_start_time = np.NaN
+        self.ct_scan_end_time = np.NaN
 
-        self.sdec_running_when_required = np.NaN
-        self.sdec_full_when_required = np.NaN
+        self.ctp_scan_start_time = np.NaN
+        self.ctp_scan_end_time = np.NaN
+
+        self.sdec_running_when_required = None
+        self.sdec_full_when_required = None
+
         self.sdec_admit_time = np.NaN
         self.sdec_discharge_time = np.NaN
 
@@ -133,6 +207,8 @@ class Patient:
         self.ct_scanner_id = np.NaN
         self.sdec_bed_id = np.NaN
         self.ward_bed_id = np.NaN
+
+        self.generated_during_warm_up = None
 
         # Flag for optionally removing incomplete journeys or processing them
         # in a different way in results
