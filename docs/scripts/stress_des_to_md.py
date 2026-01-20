@@ -14,10 +14,17 @@ df = df.map(
 )
 
 # Generate Markdown
-markdown_table = df[["Section/Subsection", "Item", "Details"]].to_markdown(index=False)
+markdown_table = df[
+    ["Section/Subsection", "Item", "Recommendation", "Details"]
+].to_markdown(index=False)
 
 # Optional header / intro text
-content = f"""# Stress DES Checklist
+content = f"""---
+hide:
+  - toc
+---
+
+# Stress DES Checklist
 
 This table is auto-generated from `checklists/{excel_path.name}`.
 
