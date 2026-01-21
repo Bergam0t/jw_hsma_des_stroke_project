@@ -9,15 +9,24 @@ It focuses on two key components of the stroke pathway:
 
 The model explores how expanding SDEC opening hours and increasing access to CTP scanning affect patient flow, bed occupancy, treatment rates and overall costs, including whether savings from fewer admissions and shorter stays can more than offset the extra service costs.
 
-This project was written as part of the sixth round of the [Health Service Modelling Associates (HSMA) Programme](https://www.hsma.co.uk).
+The model has helped transformed stroke care, improving outcomes and potentially saving over £2 million a year. To learn move, click below to open an article from the National Institute for Health and Care Research (NIHR):
+
+[![NIHR article](docs/assets/nihr_preview.png)](https://arc-swp.nihr.ac.uk/news/transforming-stroke-care-through-simulation-how-one-hsma-graduates-model-could-save-over-2-million-annually/)
+
+This project was written as part of the sixth round of the [Health Service Modelling Associates (HSMA) Programme](https://www.hsma.co.uk). Click below to watch a presentation about this project from the HSMA showcase:
+
+[![Watch the video](https://img.youtube.com/vi/ThltRNDt9k8/maxresdefault.jpg)](https://youtu.be/ThltRNDt9k8)
+
+You can also [view the slides shared](https://docs.google.com/presentation/d/18iYB7-1nJOU_3Nr0gHVSPVSsEy-VDgdz/edit?usp=drive_link&ouid=104927246423235110137&rtpof=true&sd=true).
+
 
 <br>
 
 ## Contributors
 
-The majority of the work in this repository has been undertaken by [jfwilliams4](https://github.com/jfwilliams4).
+The majority of the work in this repository has been undertaken by **John Williams** ([jfwilliams4](https://github.com/jfwilliams4)), a Stroke Performance Analyst at Maidstone and Tunbridge Wells NHS Trust.
 
-Additional tweaks, documentation creation and web app creation has been undertaken by [Bergam0t](https://github.com/Bergam0t).
+Additional tweaks, documentation creation and web app creation has been undertaken by Sammi Rosser ([Bergam0t](https://github.com/Bergam0t)), a trainer on the HSMA Programme.
 
 <br>
 
@@ -71,6 +80,8 @@ The typical runtime is around 2-3 minutes.
 It is possible to run the model via a script, but for easy access to model parameters and all results tables and outputs, it is recommended to use the web app interface.
 
 The hosted web app is available at [stroke-des.streamlit.app/](https://stroke-des.streamlit.app/).
+
+[![Screenshot from the web app](docs/assets/app_preview.png)](https://stroke-des.streamlit.app/)
 
 If you are unable to install Python code locally, you can use this free hosted version of the app, though note it may run more slowly.
 
