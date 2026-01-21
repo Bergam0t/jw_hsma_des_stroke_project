@@ -1,12 +1,17 @@
-import pandas as pd
-from vidigi.prep import reshape_for_animations, generate_animation_df
-from vidigi.animation import (
-    generate_animation,
-    add_repeating_overlay,
-)
-from vidigi.utils import EventPosition, create_event_position_df
+"""
+Functions to transform stroke patient event logs into vidigi animations.
+"""
+
 import time
 
+import pandas as pd
+
+from vidigi.prep import reshape_for_animations, generate_animation_df
+from vidigi.animation import generate_animation
+from vidigi.utils import EventPosition, create_event_position_df
+
+
+# Fixed layout describing where each event should appear in the animation
 EVENT_POSITION_DF = create_event_position_df(
     [
         EventPosition(event="arrival", x=50, y=875, label="Arrival"),
@@ -58,8 +63,28 @@ EVENT_POSITION_DF = create_event_position_df(
 
 
 def convert_event_log(patient_df, run=1):
-    patient_df_single_run = patient_df[patient_df["run"] == run]
+    """
+    Convert a wide-format patient event table into a long-format event log.
 
+    Parameters
+    ----------
+    patient_df : pd.DataFrame
+        Wide-format event data with one row per patient per run. Must contain
+        a "run" column, time columns (e.g., "clock_start") and resource ID
+        columns (e.g., "nurse_attending_id").
+    run : int, optional
+        Simulation run to extract from `patient_df`. Defaults to 1.
+
+    Returns
+    -------
+    pd.DataFrame
+        Long-format event log with columns including: "id", "time", "event",
+        "event_type", and "resource_id" (where applicable).
+    """
+    # Restrict to the specified simulation run
+    run_df = patient_df[patient_df["run"] == run]
+
+    # Keep only the columns required for the animation event log
     cols = [
         "id",
         "patient_diagnosis_type",
@@ -82,15 +107,10 @@ def convert_event_log(patient_df, run=1):
         "ward_discharge_time",
         "exit_time",
     ]
+    times_df = run_df.reindex(columns=cols).copy()
 
-    patient_df_single_run_times = patient_df_single_run.reindex(columns=cols).copy()
-
-    patient_df_single_run_ids = patient_df_single_run[
-        ["id", "nurse_attending_id", "ct_scanner_id", "sdec_bed_id", "ward_bed_id"]
-    ]
-
-    # Fix people with no exit time - for our purposes, it just needs to be the max observed time in their row
-
+    # For patients with missing exit time, use the latest non-null time in
+    # their row
     cols_max = [
         "clock_start",
         "nurse_q_start_time",
@@ -107,16 +127,12 @@ def convert_event_log(patient_df, run=1):
         "ward_discharge_time",
         "exit_time",
     ]
+    existing = times_df.columns.intersection(cols_max)
+    row_max = times_df[existing].max(axis=1)
+    times_df["exit_time"] = times_df["exit_time"].fillna(row_max)
 
-    existing = patient_df_single_run_times.columns.intersection(cols_max)
-
-    row_max = patient_df_single_run_times[existing].max(axis=1)
-
-    patient_df_single_run_times["exit_time"] = patient_df_single_run_times[
-        "exit_time"
-    ].fillna(row_max)
-
-    patient_df_single_run_times_long = patient_df_single_run_times.melt(
+    # Reshape from wide to long: one row per patient per event
+    times_df_long = times_df.melt(
         id_vars=[
             "id",
             "patient_diagnosis_type",
@@ -127,6 +143,7 @@ def convert_event_log(patient_df, run=1):
         ]
     ).rename(columns={"variable": "event", "value": "time"})
 
+    # Map time-stamped columns to generic event types for vidigi
     event_map = {
         "clock_start": "arrival_departure",
         "nurse_q_start_time": "queue",
@@ -143,43 +160,61 @@ def convert_event_log(patient_df, run=1):
         "ward_discharge_time": "resource_use_end",
         "exit_time": "arrival_departure",
     }
+    times_df_long["event_type"] = times_df_long["event"].apply(
+        lambda x: event_map[x]
+    )
 
-    patient_df_single_run_times_long["event_type"] = patient_df_single_run_times_long[
-        "event"
-    ].apply(lambda x: event_map[x])
-
-    patient_df_single_run_resource_ids = patient_df_single_run[
+    # Extract resource assignments (nurse, SDEC bed, ward bed) per patient
+    resource_ids = run_df[
         ["id", "nurse_attending_id", "sdec_bed_id", "ward_bed_id"]
     ]
-
-    patient_df_single_run_resource_ids = patient_df_single_run_resource_ids.melt(
+    resource_ids = resource_ids.melt(
         id_vars="id", value_name="resource_id"
     )
 
+    # Map resource ID columns to the events where the resource is in use
     resource_mapping_df = pd.DataFrame(
         [
-            {"variable": "nurse_attending_id", "event": "nurse_triage_start_time"},
-            {"variable": "nurse_attending_id", "event": "nurse_triage_end_time"},
-            {"variable": "sdec_bed_id", "event": "sdec_admit_time"},
-            {"variable": "sdec_bed_id", "event": "sdec_discharge_time"},
-            {"variable": "ward_bed_id", "event": "ward_admit_time"},
-            {"variable": "ward_bed_id", "event": "ward_discharge_time"},
+            {
+                "variable": "nurse_attending_id",
+                "event": "nurse_triage_start_time"
+            },
+            {
+                "variable": "nurse_attending_id",
+                "event": "nurse_triage_end_time"
+            },
+            {
+                "variable": "sdec_bed_id",
+                "event": "sdec_admit_time"
+            },
+            {
+                "variable": "sdec_bed_id",
+                "event": "sdec_discharge_time"
+            },
+            {
+                "variable": "ward_bed_id",
+                "event": "ward_admit_time"
+            },
+            {
+                "variable": "ward_bed_id",
+                "event": "ward_discharge_time"
+            }
         ]
     )
 
-    patient_df_single_run_resource_ids = patient_df_single_run_resource_ids.merge(
+    # Attach resource IDs to the corresponding events
+    resource_ids = resource_ids.merge(
         resource_mapping_df, on="variable", how="inner"
     ).drop(columns=["variable"])
 
-    event_log = patient_df_single_run_times_long.merge(
-        patient_df_single_run_resource_ids, on=["id", "event"], how="outer"
+    # Combine events and resource IDs, dropping any rows with no timestamp
+    event_log = times_df_long.merge(
+        resource_ids, on=["id", "event"], how="outer"
     ).dropna(subset="time")
 
-    event_log["event"] = event_log["event"].apply(
-        lambda x: "arrival" if x == "clock_start" else x
-    )
-    event_log["event"] = event_log["event"].apply(
-        lambda x: "depart" if x == "exit_time" else x
+    # Rename start/exit events to match vidigi event position configuration
+    event_log["event"] = event_log["event"].replace(
+        {"clock_start": "arrival", "exit_time": "depart"}
     )
 
     return event_log
@@ -195,17 +230,52 @@ def create_vidigi_animation(
     gap_between_resource_rows=50,
     gap_between_resources=20,
 ):
+    """
+    Build a vidigi animation figure from an event log and scenario settings.
+
+    Parameters
+    ----------
+    event_log : pd.DataFrame
+        Long-format event log for a single simulation run. Must contain
+        "id", "time", "event", and any columns used in `event_position_df`
+        (for example, "patient_diagnosis_type").
+    scenario : object
+        Configuration object with attributes like `warm_up_period`,
+        `sim_duration` and `sdec_opening_hour`.
+    event_position_df : pd.DataFrame, optional
+        Event layout table describing where each event appears in the
+        animation. Defaults to `EVENT_POSITION_DF`.
+    snapshot_interval : int, optional
+        Time between animation snapshots, in simulation time units. Defaults to
+        15.
+    step_snapshot_max : int, optional
+        Maximum number of snapshots to generate. Defaults to 180.
+    entity_col_name : str, optional
+        Column name for the entity identifier. Defaults to "id".
+    gap_between_resource_rows : int, optional
+        Vertical spacing between rows of resource icons. Defaults to 50.
+    gap_between_resources : int, optional
+        Horizontal spacing between distinct resources. Defaults to 20.
+
+    Returns
+    -------
+    plotly.graph_objs._figure.Figure
+        Plotly figure object containing the vidigi animation.
+    """
+    # Enforce that the event log contains only a single simulation run
     if "run" in event_log.columns:
         if event_log["run"].nunique() > 1:
             raise ValueError(
-                f"'run' column has {event_log['run'].nunique()} unique values; "
-                f"please pass in a filtered event log with only one run"
+                f"'run' column has {event_log['run'].nunique()} unique values;"
+                f" please pass in a filtered event log with only one run"
             )
 
-    warm_up_threshold = scenario.warm_up_period + (scenario.sdec_opening_hour * 60)
-
-    limit_duration = (scenario.sim_duration / 12 / 2) + (
-        scenario.sdec_opening_hour * 60
+    # Calculate warm-up and plotting end times in simulation minutes
+    warm_up_threshold = (
+        scenario.warm_up_period + (scenario.sdec_opening_hour * 60)
+    )
+    limit_duration = (
+        (scenario.sim_duration / 12 / 2) + (scenario.sdec_opening_hour * 60)
     )
     limit_duration_inc_warmup = limit_duration + scenario.warm_up_period
 
@@ -218,19 +288,24 @@ def create_vidigi_animation(
         .rename(columns={"time": "latest_event_time"})
     )
 
-    # Filter down to only patient IDs we want to keep
+    # Identify patients whose activity extends beyond the warm-up period
     latest_event_per_id = latest_event_per_id[
         latest_event_per_id["latest_event_time"] >= warm_up_threshold
     ]
 
     print(
-        f"Placement dataframe started construction at {time.strftime('%H:%M:%S', time.localtime())}"
+        "Placement dataframe started construction at " +
+        f"{time.strftime('%H:%M:%S', time.localtime())}"
     )
     print(f"Before warm-up filtering: {len(event_log)} rows")
-    # exclude patients where the latest event occurred before the warm-up period had elapsed
-    event_log = event_log[event_log["id"].isin(latest_event_per_id["id"].values)]
+
+    # Exclude patients whose last event occurs before the warm-up period ends
+    event_log = event_log[
+        event_log["id"].isin(latest_event_per_id["id"].values)
+    ]
     print(f"After warm-up filtering: {len(event_log)} rows")
 
+    # Create snapshot-level entity positions over time
     full_patient_df = reshape_for_animations(
         event_log,
         entity_col_name=entity_col_name,
@@ -241,14 +316,14 @@ def create_vidigi_animation(
 
     print("Full patient df (5 rows)")
     print(full_patient_df.head())
-
     print(f"Warm-up duration: {warm_up_threshold}")
 
-    # Remove the warm-up period from the event log
+    # Drop snapshots that occur before the warm-up period
     full_patient_df = full_patient_df[
         full_patient_df["snapshot_time"] >= warm_up_threshold
     ]
 
+    # Attach x–y positions and queue/resource layout for animation
     full_patient_df_plus_pos = generate_animation_df(
         full_entity_df=full_patient_df,
         entity_col_name=entity_col_name,
@@ -262,33 +337,26 @@ def create_vidigi_animation(
         step_snapshot_limit_gauges=True,
         gap_between_resources=gap_between_resources,
     )
-
     final_df = full_patient_df_plus_pos.copy()
 
-    # return final_df
-
     # Change icon depending on stroke type
+    icon_map = {
+        "ICH": "🩸",
+        "I": "⌚",
+        "TIA": "➡️",
+        "Stroke Mimic": "🪞",
+        "Non Stroke": "🚷",
+    }
     final_df["icon"] = final_df.apply(
-        lambda x: "🩸" if x["patient_diagnosis_type"] == "ICH" else x["icon"], axis=1
-    )
-    final_df["icon"] = final_df.apply(
-        lambda x: "⌚" if x["patient_diagnosis_type"] == "I" else x["icon"], axis=1
-    )
-    final_df["icon"] = final_df.apply(
-        lambda x: "➡️" if x["patient_diagnosis_type"] == "TIA" else x["icon"], axis=1
-    )
-    final_df["icon"] = final_df.apply(
-        lambda x: "🪞" if x["patient_diagnosis_type"] == "Stroke Mimic" else x["icon"],
-        axis=1,
-    )
-    final_df["icon"] = final_df.apply(
-        lambda x: "🚷" if x["patient_diagnosis_type"] == "Non Stroke" else x["icon"],
+        lambda row: icon_map.get(row["patient_diagnosis_type"], row["icon"]),
         axis=1,
     )
     # final_df["icon"] = final_df.apply(
-    #     lambda x: x["icon"] + "*" if x["admission_avoidance"] else x["icon"], axis=1
+    #     lambda x: x["icon"] + "*" if x["admission_avoidance"] else x["icon"],
+    #     axis=1
     # )
 
+    # Build the interactive animation using vidigi
     fig = generate_animation(
         full_entity_df_plus_pos=final_df,
         event_position_df=event_position_df,

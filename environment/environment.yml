@@ -3,6 +3,7 @@ channels:
   - conda-forge
 dependencies:
   - python=3.12.10
+  - pip
   - pip:
       - numpy==1.26.4
       - pandas==2.1.1
@@ -20,4 +21,4 @@ dependencies:
       - tabulate==0.9.0
       - pytest==9.0.2
       - streamlit_image_zoom==0.0.4
-      - -e .
+      - -e ..

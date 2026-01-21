@@ -1,13 +1,20 @@
+"""
+Page for users to choose parameters, run the model and view results.
+"""
+
+# External imports
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+
+# Model imports
 from stroke_ward_model.inputs import g
 from stroke_ward_model.trial import Trial
-import streamlit as st
-import plotly.express as px
+
+# App imports
 from app_utils import iconMetricContainer
 from convert_event_log import convert_event_log, create_vidigi_animation
-from vidigi.process_mapping import add_sim_timestamp, discover_dfg, dfg_to_graphviz
-from streamlit_image_zoom import image_zoom
-import pandas as pd
-from plots import plot_occupancy
+from plots import plot_dfg_per_feature, generate_occupancy_plots
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 
@@ -75,7 +82,11 @@ with st.sidebar:
 
     therapy_sdec = st.toggle(
         "Toggle whether the SDEC will run with full therapy support",
-        help="Off = no therapy support. If therapy support enabled, patients with a higher level of disability will be eligible for admission avoidance via SDEC (maximum MRS of 3 rather than 2 without therapy).",
+        help="""
+Off = no therapy support. If therapy support enabled, patients with a higher
+ level of disability will be eligible for admission avoidance via SDEC (maximum
+ MRS of 3 rather than 2 without therapy).
+        """,
     )
     g.therapy_sdec = therapy_sdec
 
@@ -98,18 +109,27 @@ with st.sidebar:
         )
 
         st.caption(
-            f"This equates to the SDEC being open roughly {24 / 100 * sdec_unaval_perc:.1f} hours a day"
+            f"""
+This equates to the SDEC being open roughly {24 / 100 * sdec_unaval_perc:.1f}
+hours a day
+            """
         )
 
         ctp_unaval_perc = st.number_input(
-            "What percentage of the day should the CT Perfusion Scanner (CTP) be available? (0-100)",
+            """
+What percentage of the day should the CT Perfusion Scanner (CTP) be available?
+(0-100)
+            """,
             min_value=0.0,
             max_value=100.0,
             value=33.3,
         )
 
         st.caption(
-            f"This equates to the CT perfusion scanner being available roughly {24 / 100 * sdec_unaval_perc:.1f} hours a day"
+            f"""
+This equates to the CT perfusion scanner being available roughly
+{24 / 100 * sdec_unaval_perc:.1f} hours a day
+            """
         )
 
     else:
@@ -121,17 +141,22 @@ with st.sidebar:
             step=0.25,
         )
 
-        st.caption(f"The SDEC is available {sdec_avail_hours / 24.0:.1%} of the time")
+        st.caption(
+            f"The SDEC is available {sdec_avail_hours / 24.0:.1%} of the time"
+        )
 
         sdec_open_time = st.time_input(
-            "What time should the SDEC be open from?", value="08:00", step=60 * 60
+            "What time should the SDEC be open from?",
+            value="08:00", step=60 * 60
         )
         g.sdec_opening_hour = sdec_open_time.hour
 
         sdec_unaval_perc = ((24.0 - sdec_avail_hours) / 24.0) * 100
 
         ctp_avail_hours = st.slider(
-            "How many hours a day should the CT perfusion scanner be available?",
+            """
+How many hours a day should the CT perfusion scanner be available?
+            """,
             0.0,
             24.0,
             8.0,
@@ -139,7 +164,9 @@ with st.sidebar:
         )
 
         st.caption(
-            f"The CTP perfusion scanner is available {ctp_avail_hours / 24.0:.1%} of the time"
+            f"""
+The CTP perfusion scanner is available {ctp_avail_hours / 24.0:.1%} of the time
+            """
         )
 
         ctp_open_time = st.time_input(
@@ -187,7 +214,10 @@ with st.sidebar:
     g.in_hours_start = in_hours_demand_start.hour
 
     in_hours_mean_iat = st.number_input(
-        "What is the current average time (in minutes) between arrivals at the unit in-hours?",
+        """
+What is the current average time (in minutes) between arrivals at the unit
+in-hours?
+        """,
         min_value=1.0,
         max_value=5000.0,
         value=200.0,
@@ -200,7 +230,10 @@ with st.sidebar:
     g.ooh_start = out_of_hours_demand_start.hour
 
     out_of_hours_mean_iat = st.number_input(
-        "What is the current average time (in minutes) between arrivals at the unit out-of-hours?",
+        """
+What is the current average time (in minutes) between arrivals at the unit
+out-of-hours?
+        """,
         min_value=1.0,
         max_value=5000.0,
         value=666.67,
@@ -240,8 +273,8 @@ with st.sidebar:
 
     # 4. Display Summary to User
     st.info(
-        f"**Estimated Annual Volume:** {int(total_annual):,} arrivals per year "
-        f"({int(annual_in):,} In-Hours, {int(annual_out):,} Out-of-Hours)"
+        f"**Estimated Annual Volume:** {int(total_annual):,} arrivals per year"
+        f" ({int(annual_in):,} In-Hours, {int(annual_out):,} Out-of-Hours)"
     )
 
     st.divider()
@@ -251,10 +284,9 @@ with st.sidebar:
     ###############################
     st.subheader("Model Parameters (ADVANCED)")
 
-    number_of_runs = st.number_input(
+    g.number_of_runs = st.number_input(
         "Number of Runs", min_value=1, max_value=100, value=10
     )
-    g.number_of_runs = number_of_runs
 
     # TODO: Are people likely to want to simulate partial years?
     # Could switch to number of years slider instead if not for ease.
@@ -266,7 +298,11 @@ with st.sidebar:
     g.sim_duration = sim_duration_minutes
 
     st.caption(
-        f"You are simulating {(sim_duration_days // 365)} year{'' if sim_duration_days // 365 == 1 else 's'} and {sim_duration_days % 365} days"
+        f"""
+You are simulating {(sim_duration_days // 365)}
+year{'' if sim_duration_days // 365 == 1 else 's'} and
+{sim_duration_days % 365} days
+        """
     )
 
     warm_up_duration_days = st.slider(
@@ -275,13 +311,20 @@ with st.sidebar:
         180,
         value=90,
         step=5,
-        help="This is how long the model will run for before starting to record results. Warming up is recommended so that metrics aren't skewed by the ward starting empty, which is an unrealistic sitution.\n\nYou can use the 'Occupancy Over Time' graph to help assess whether your warm-up duration is appropriate.",
+        help="""
+This is how long the model will run for before starting to record results.
+Warming up is recommended so that metrics aren't skewed by the ward starting
+empty, which is an unrealistic sitution.\n\nYou can use the 'Occupancy Over
+Time' graph to help assess whether your warm-up duration is appropriate.
+        """,
     )
     warm_up_duration_minutes = warm_up_duration_days * 24 * 60
 
     g.warm_up_period = warm_up_duration_minutes
 
-    debug_console = st.toggle("Turn on Debugging Console Messages", value=False)
+    debug_console = st.toggle(
+        "Turn on Debugging Console Messages", value=False
+    )
 
     g.show_trace = debug_console
 
@@ -291,7 +334,12 @@ with st.sidebar:
         min_value=1,
         max_value=None,
         step=1,
-        help="This parameter affects the random numbers used. Controlled random number generation is used for inter-arrival times, activity times, and patient attribute allocation.<br/><br/><b>It is recommended to keep the seed the same when trying out different scenarios.</b>",
+        help="""
+This parameter affects the random numbers used. Controlled random number
+generation is used for inter-arrival times, activity times, and patient
+attribute allocation.<br/><br/><b>It is recommended to keep the seed the same
+when trying out different scenarios.</b>
+        """,
     )
 
     g.master_seed = master_seed
@@ -310,7 +358,8 @@ if button_run_pressed:
         # Call the run_trial method of our Trial object
         my_trial.run_trial()
 
-        # Filter out any patients who were generated before the warm-up period elapsed
+        # Filter out any patients who were generated before the warm-up
+        # period elapsed
         patient_df = my_trial.trial_patient_df[
             my_trial.trial_patient_df["generated_during_warm_up"] == False
         ]
@@ -347,7 +396,7 @@ if button_run_pressed:
                     type="symbols",
                 ):
                     st.metric(
-                        label=f"CTP scanners",
+                        label="CTP scanners",
                         value=g.number_of_ctp,
                         border=True,
                     )
@@ -358,7 +407,9 @@ if button_run_pressed:
                     end_hour = (start_hour + duration_hours) % 24
 
                     st.caption(
-                        f"Available from {start_hour:g} until {end_hour:g} ({duration_hours:.1f} hours)"
+                        f"""
+Available from {start_hour:g}:00-{end_hour:g}:00 ({duration_hours:g}h)
+                        """
                     )
 
             with col2:
@@ -382,7 +433,9 @@ if button_run_pressed:
                         end_hour = (start_hour + duration_hours) % 24
 
                         st.caption(
-                            f"Available from {start_hour:g} until {end_hour:g} ({duration_hours:.1f} hours)"
+                            f"""
+Available from {start_hour:g}:00-{end_hour:g}:00 ({duration_hours:g}h)
+                            """
                         )
                     else:
                         st.caption("")
@@ -427,7 +480,12 @@ if button_run_pressed:
                 average_patients_per_run / (g.sim_duration / 60 / 24)
             ) * 365
 
-            with col1:
+            st.divider()
+            st.subheader("Patient throughoutput")
+
+            pcol1, pcol2, pcol3, pcol4 = st.columns(4)
+
+            with pcol1:
                 with iconMetricContainer(
                     key="patients_per_year",
                     icon_unicode="ebcc",
@@ -441,8 +499,8 @@ if button_run_pressed:
                         border=True,
                     )
 
-            with col2:
-                patient_diagnosis_by_stroke_type_count = (
+            with pcol2:
+                diagnosis_by_stroke_type_count = (
                     patient_df.groupby(["run", "patient_diagnosis_type"])
                     .size()
                     .groupby("patient_diagnosis_type")
@@ -450,35 +508,36 @@ if button_run_pressed:
                     .reset_index(name="mean_patients_per_run")
                 )
 
-                patient_diagnosis_by_stroke_type_count["patient_diagnosis_type"] = (
+                diagnosis_by_stroke_type_count["patient_diagnosis_type"] = (
                     pd.Categorical(
-                        patient_diagnosis_by_stroke_type_count[
+                        diagnosis_by_stroke_type_count[
                             "patient_diagnosis_type"
                         ],
-                        categories=["ICH", "I", "TIA", "Stroke Mimic", "Non Stroke"],
+                        categories=["ICH", "I", "TIA",
+                                    "Stroke Mimic", "Non Stroke"],
                         ordered=True,
                     )
                 )
 
-                patient_diagnosis_by_stroke_type_count = (
-                    patient_diagnosis_by_stroke_type_count.sort_values(
+                diagnosis_by_stroke_type_count = (
+                    diagnosis_by_stroke_type_count.sort_values(
                         "patient_diagnosis_type"
                     )
                 )
 
-                patient_diagnosis_by_stroke_type_count_per_year = (
-                    patient_diagnosis_by_stroke_type_count.copy()
+                diagnosis_by_stroke_type_count_per_year = (
+                    diagnosis_by_stroke_type_count.copy()
                 )
 
-                patient_diagnosis_by_stroke_type_count["mean_patients_per_run"] = (
-                    patient_diagnosis_by_stroke_type_count["mean_patients_per_run"]
+                diagnosis_by_stroke_type_count["mean_patients_per_run"] = (
+                    diagnosis_by_stroke_type_count["mean_patients_per_run"]
                     / (g.sim_duration / 60 / 24)
                     * 365
                 )
 
                 st.dataframe(
                     round(
-                        patient_diagnosis_by_stroke_type_count_per_year.rename(
+                        diagnosis_by_stroke_type_count_per_year.rename(
                             columns={
                                 "patient_diagnosis_type": "Diagnosis",
                                 "mean_patients_per_run": "Count",
@@ -489,7 +548,7 @@ if button_run_pressed:
                     hide_index=True,
                 )
 
-            with col3:
+            with pcol3:
                 with iconMetricContainer(
                     key="patients_per_day",
                     icon_unicode="e878",
@@ -503,21 +562,21 @@ if button_run_pressed:
                         border=True,
                     )
 
-            with col4:
-                patient_diagnosis_by_stroke_type_count_per_day = (
-                    patient_diagnosis_by_stroke_type_count_per_year.copy()
+            with pcol4:
+                diagnosis_by_stroke_type_count_per_day = (
+                    diagnosis_by_stroke_type_count_per_year.copy()
                 )
 
-                patient_diagnosis_by_stroke_type_count_per_day[
+                diagnosis_by_stroke_type_count_per_day[
                     "mean_patients_per_run"
                 ] = (
-                    patient_diagnosis_by_stroke_type_count_per_day[
+                    diagnosis_by_stroke_type_count_per_day[
                         "mean_patients_per_run"
                     ]
                     / 365
                 )
                 st.dataframe(
-                    patient_diagnosis_by_stroke_type_count_per_day.rename(
+                    diagnosis_by_stroke_type_count_per_day.rename(
                         columns={
                             "patient_diagnosis_type": "Diagnosis",
                             "mean_patients_per_run": "Count",
@@ -530,10 +589,19 @@ if button_run_pressed:
 
             st.subheader("Results")
 
-            sim_duration_display = f"{(sim_duration_days // 365):.0f} year{'' if sim_duration_days // 365 == 1 else 's'} and {(sim_duration_days % 365):.0f} days"
+            sim_duration_display = f"""
+{(sim_duration_days // 365):.0f}
+year{'' if sim_duration_days // 365 == 1 else 's'} and
+{(sim_duration_days % 365):.0f} days
+            """
 
             col1a, col2a, col3a = st.columns(3)
 
+            # Add container with thrombolysis savings per year
+            throm_yearly_save = (
+                my_trial.df_trial_results["Thrombolysis Savings (£)"]
+                / sim_duration_years
+            ).mean()
             with col1a:
                 with iconMetricContainer(
                     key="thrombolysis_savings",
@@ -544,14 +612,21 @@ if button_run_pressed:
                 ):
                     st.metric(
                         label="Average Thrombolysis Savings per Year",
-                        value=f"£{(my_trial.df_trial_results['Thrombolysis Savings (£)'] / sim_duration_years).mean():,.0f}",
+                        value=f"£{throm_yearly_save:,.0f}",
                         border=True,
                     )
 
-                    st.caption(
-                        f"Average savings were £{my_trial.df_trial_results['Thrombolysis Savings (£)'].mean():,.0f} across the full model run of {sim_duration_display}."
-                    )
+                    st.caption(f"""
+The average total savings for the full model period
+of {sim_duration_display} were
+£{my_trial.df_trial_results['Thrombolysis Savings (£)'].mean():,.0f}.
+""")
 
+            # Add container with SDEC savings per year
+            sdec_yearly_save = (
+                my_trial.df_trial_results['SDEC Savings (£)'] /
+                sim_duration_years
+            ).mean()
             with col2a:
                 with iconMetricContainer(
                     key="sdec_savings",
@@ -562,15 +637,24 @@ if button_run_pressed:
                 ):
                     st.metric(
                         label="Average SDEC Savings per Year",
-                        value=f"£{(my_trial.df_trial_results['SDEC Savings (£)'] / sim_duration_years).mean():,.0f}",
+                        value=f"£{sdec_yearly_save:,.0f}",
                         border=True,
                     )
 
-                    st.caption(
-                        f"Average savings were £{my_trial.df_trial_results['SDEC Savings (£)'].mean():,.0f} across the full model run of {sim_duration_display}. "
-                        + f"This is calculated as the total savings from running the SDEC, subtracting the medical cost of running the SDEC. SDEC running costs are set to £{(g.sdec_dr_cost_min * 60):.2f} per hour."
-                    )
+                    st.caption(f"""
+The average total savings for the full model period
+of {sim_duration_display} were
+£{my_trial.df_trial_results['SDEC Savings (£)'].mean():,.0f}. This is
+calculated as the total savings from running the SDEC, subtracting the
+medical cost of running the SDEC. SDEC running costs are set to
+£{(g.sdec_dr_cost_min * 60):.2f} per hour.
+                    """)
 
+            # Add container with overall savings per year
+            overall_yearly_save = (
+                my_trial.df_trial_results['Total Savings'] /
+                sim_duration_years
+            ).mean()
             with col3a:
                 with iconMetricContainer(
                     key="overall_savings",
@@ -581,18 +665,24 @@ if button_run_pressed:
                 ):
                     st.metric(
                         label="Average Overall Savings per Year",
-                        value=f"£{(my_trial.df_trial_results['Total Savings'] / sim_duration_years).mean():,.0f}",
+                        value=f"£{overall_yearly_save:,.0f}",
                         border=True,
                     )
 
                     st.caption(
-                        f"Average savings were £{my_trial.df_trial_results['Total Savings'].mean():,.0f} across the full model run of {sim_duration_display}."
+                        f"""
+The average total savings for the full model period
+of {sim_duration_display} were
+£{my_trial.df_trial_results['Total Savings'].mean():,.0f}.
+                        """
                     )
 
             st.html("<br/>")
 
             col1b, col2b, col3b = st.columns(3)
 
+            # Add container with mean ward occupancy
+            mean_ward_occ = my_trial.df_trial_results["Mean Occupancy"].mean()
             with col1b:
                 with iconMetricContainer(
                     key="ward_occupancy",
@@ -603,14 +693,25 @@ if button_run_pressed:
                 ):
                     st.metric(
                         label="Mean Ward Occupancy",
-                        value=f"{my_trial.df_trial_results['Mean Occupancy'].mean():,.0f} of {g.number_of_ward_beds} beds",
+                        value=f"""
+{mean_ward_occ:,.0f} of {g.number_of_ward_beds} beds
+                        """,
                         border=True,
                     )
 
                     st.caption(
-                        f"This is an average occupancy of {(my_trial.df_trial_results['Mean Occupancy'].mean() / g.number_of_ward_beds):.1%}"
+                        f"""
+This is an average occupancy of {(mean_ward_occ / g.number_of_ward_beds):.1%}
+                        """
                     )
 
+            # Add container with average admissions avoided per year
+            avoid_yearly = (
+                my_trial.df_trial_results[
+                    "Number of Admissions Avoided In Run"
+                ]
+                / sim_duration_years
+            ).mean()
             with col2b:
                 with iconMetricContainer(
                     key="admissions_avoided",
@@ -621,24 +722,29 @@ if button_run_pressed:
                 ):
                     st.metric(
                         label="Average Admissions Avoided per Year",
-                        value=f"{(my_trial.df_trial_results['Number of Admissions Avoided In Run'] / sim_duration_years).mean():,.0f}",
+                        value=f"{avoid_yearly:,.0f}",
                         border=True,
                     )
 
                     st.caption(
-                        f"On average, {my_trial.df_trial_results['Number of Admissions Avoided In Run'].mean():,.0f} admissions were avoided across the full model run of {sim_duration_display}. "
-                        "Avoided admissions are those patients who were able to leave after being seen in SDEC, and would have had a full admission if the SDEC was not available."
+                        f"""
+The average total number of admissions avoided for the full model period
+of {sim_duration_display} were
+{my_trial.df_trial_results['Number of Admissions Avoided In Run'].mean():,.0f}.
+Avoided admissions are those patients who were able to leave after being seen
+in SDEC, and would have had a full admission if the SDEC was not available.
+                        """
                     )
 
+            # Add container with extra patients thrombolysed per year
+            extra_throm = (
+                g.trial_additional_thrombolysis_from_ctp[g.trials_run_counter]
+            )
+            extra_throm_yearly = (
+                extra_throm /
+                (g.sim_duration / 60 / 24)
+            ) * 365
             with col3b:
-                additional_patients_thrombolysed = (
-                    g.trial_additional_thrombolysis_from_ctp[g.trials_run_counter]
-                )
-
-                additional_patients_thrombolysed_per_year = (
-                    additional_patients_thrombolysed / (g.sim_duration / 60 / 24)
-                ) * 365
-
                 with iconMetricContainer(
                     key="additional_thrombolysis",
                     icon_unicode="e138",
@@ -648,16 +754,22 @@ if button_run_pressed:
                 ):
                     st.metric(
                         label="Extra patients thrombolysed per year",
-                        value=f"{additional_patients_thrombolysed_per_year:.0f}",
+                        value=f"{extra_throm_yearly:.0f}",
                         border=True,
                     )
 
-                    st.caption(
-                        "This looks at the average count of patients who were able to be offered thrombolysis due to the enhanced capabilities of the CTP scanner."
-                    )
+                    st.caption("""
+This looks at the average count of patients who were able to be offered
+thrombolysis due to the enhanced capabilities of the CTP scanner.
+                    """)
 
             col1c, col2c, col3c = st.columns(3)
 
+            # Add container with average admission delays per year
+            admit_delay_yearly = (
+                my_trial.df_trial_results['Number of Admission Delays'] /
+                sim_duration_years
+            ).mean()
             with col1c:
                 with iconMetricContainer(
                     key="admission_delays",
@@ -668,14 +780,19 @@ if button_run_pressed:
                 ):
                     st.metric(
                         label="Average Admission Delays per Year",
-                        value=f"{(my_trial.df_trial_results['Number of Admission Delays'] / sim_duration_years).mean():,.0f}",
+                        value=f"{admit_delay_yearly:,.0f}",
                         border=True,
                     )
 
                     st.caption(
-                        f"On average, {my_trial.df_trial_results['Number of Admission Delays'].mean():,.0f} admissions were delayed across the full model run of {sim_duration_display}."
+                        f"""
+The average number of admissions that were delayed for the full model period
+of {sim_duration_display} were
+{my_trial.df_trial_results['Number of Admission Delays'].mean():,.0f}.
+                        """
                     )
 
+            # Add container with average duration of admission delays
             with col2c:
                 with iconMetricContainer(
                     key="admission_delay_average",
@@ -686,10 +803,13 @@ if button_run_pressed:
                 ):
                     st.metric(
                         label="Average Ward Admission Delay Duration",
-                        value=f"{g.trial_mean_q_time_ward[g.trials_run_counter]} hours",
+                        value=f"""
+{g.trial_mean_q_time_ward[g.trials_run_counter]} hours
+                        """,
                         border=True,
                     )
 
+            # Add container with maximum duration of admission delay
             with col3c:
                 with iconMetricContainer(
                     key="admission_delay_max",
@@ -700,14 +820,19 @@ if button_run_pressed:
                 ):
                     st.metric(
                         label="Maximum Ward Admission Delay Duration",
-                        value=f"{g.trial_max_q_time_ward[g.trials_run_counter]} hours",
+                        value=f"""
+{g.trial_max_q_time_ward[g.trials_run_counter]} hours
+                        """,
                         border=True,
                     )
 
-                st.caption("This looks at the maximum delay seen across all model runs")
+                st.caption("""
+This looks at the maximum delay seen across all model runs
+                """)
 
             col1d, col2d = st.columns(2)
 
+            # Add container with average duration of nurse triage delay
             with col1d:
                 with iconMetricContainer(
                     key="nurse_delay_average",
@@ -718,10 +843,13 @@ if button_run_pressed:
                 ):
                     st.metric(
                         label="Average Nurse Triage Delay Duration",
-                        value=f"{g.trial_mean_q_time_nurse[g.trials_run_counter]} minutes",
+                        value=f"""
+{g.trial_mean_q_time_nurse[g.trials_run_counter]} minutes
+                        """,
                         border=True,
                     )
 
+            # Add container with maximum duration of nurse triage delay
             with col2d:
                 with iconMetricContainer(
                     key="nurse_delay_max",
@@ -732,14 +860,20 @@ if button_run_pressed:
                 ):
                     st.metric(
                         label="Maximum Nurse Triage Delay Duration",
-                        value=f"{g.trial_max_q_time_nurse[g.trials_run_counter]} minutes",
+                        value=f"""
+{g.trial_max_q_time_nurse[g.trials_run_counter]} minutes
+                        """,
                         border=True,
                     )
 
-                st.caption("This looks at the maximum delay seen across all model runs")
+                st.caption("""
+This looks at the maximum delay seen across all model runs
+                """)
 
             col1e, col2e = st.columns(2)
 
+            # Add container with average eligble patients outside SDEC
+            # operating hours
             with col1e:
                 patients_inside_sdec_operating_hours = (
                     patient_df[
@@ -752,7 +886,8 @@ if button_run_pressed:
                 )
 
                 patients_inside_sdec_operating_hours_per_year = (
-                    patients_inside_sdec_operating_hours / (g.sim_duration / 60 / 24)
+                    patients_inside_sdec_operating_hours /
+                    (g.sim_duration / 60 / 24)
                 ) * 365
 
                 patients_outside_sdec_operating_hours_per_year = (
@@ -768,26 +903,33 @@ if button_run_pressed:
                     type="symbols",
                 ):
                     st.metric(
-                        label="Average Eligible Patients Outside of SDEC Operating Hours",
+                        label="""
+Average Eligible Patients Outside of SDEC Operating Hours
+                        """,
                         # value=f"{patients_outside_sdec_operating_hours_per_year:.0f} of {average_patients_per_year:.0f} ({(patients_outside_sdec_operating_hours_per_year / average_patients_per_year):.1%})",
-                        value=f"{patients_outside_sdec_operating_hours_per_year:.0f}",
+                        value=f"""
+{patients_outside_sdec_operating_hours_per_year:.0f}
+                        """,
                         border=True,
                     )
 
-                    st.caption(
-                        "This looks at the average count of patients who were unable to be routed to SDEC after their CT or CTP scan due to SDEC being shut. This excludes any TIA, stroke mimic or non-stroke patients who left the model immediately after their scan."
-                    )
+                    st.caption("""
+This looks at the average count of patients who were unable to be routed to
+SDEC after their CT or CTP scan due to SDEC being shut. This excludes any TIA,
+stroke mimic or non-stroke patients who left the model immediately after their
+scan.
+                    """)
 
             with col2e:
-                patients_sdec_full = (
+                sdec_full = (
                     patient_df[patient_df["sdec_full_when_required"] == True]
                     .groupby("run")
                     .size()
                     .mean()
                 )
 
-                patients_sdec_full_per_year = (
-                    patients_sdec_full / (g.sim_duration / 60 / 24)
+                sdec_full_per_year = (
+                    sdec_full / (g.sim_duration / 60 / 24)
                 ) * 365
 
                 with iconMetricContainer(
@@ -799,64 +941,30 @@ if button_run_pressed:
                 ):
                     st.metric(
                         label="Patients Bypassing SDEC Due to it Being Full",
-                        value=f"{patients_sdec_full_per_year:.0f} of {patients_inside_sdec_operating_hours_per_year:.0f} ({(patients_sdec_full_per_year / patients_inside_sdec_operating_hours_per_year):.1%})",
+                        value=f"""
+{sdec_full_per_year:.0f} of
+{patients_inside_sdec_operating_hours_per_year:.0f}
+({(sdec_full_per_year / patients_inside_sdec_operating_hours_per_year):.1%})
+""",
                         border=True,
                     )
 
-                    st.caption(
-                        "This looks at the average count across all runs of patients arriving in SDEC during its open hours who had to be routed directly to a ward due to the SDEC being full."
-                    )
+                    st.caption("""
+This looks at the average count across all runs of patients arriving in SDEC
+during its open hours who had to be routed directly to a ward due to the SDEC
+being full.
+                    """)
 
             st.subheader("Full Per-Run Results for Trial")
 
             st.dataframe(my_trial.df_trial_results.T)
 
         with tab2:
-
-            @st.fragment
-            def generate_occupancy_plots():
-                conf_intervals = st.toggle("Show Confidence Intervals", value=True)
-                st.subheader("Ward Occupancy Over Time")
-
-                ward_occupancy_fig = plot_occupancy(
-                    occupancy_df=my_trial.ward_occupancy_df,
-                    total_sim_duration_days=warm_up_duration_days + sim_duration_days,
-                    warm_up_duration_days=warm_up_duration_days,
-                    plot_confidence_intervals=conf_intervals,
-                )
-
-                st.plotly_chart(ward_occupancy_fig)
-
-                st.subheader("SDEC Occupancy Over Time")
-                sdec_occupancy_fig = plot_occupancy(
-                    occupancy_df=my_trial.sdec_occupancy_df,
-                    total_sim_duration_days=warm_up_duration_days + sim_duration_days,
-                    warm_up_duration_days=warm_up_duration_days,
-                    plot_confidence_intervals=conf_intervals,
-                )
-
-                st.plotly_chart(sdec_occupancy_fig)
-
-                with st.expander("Click to view detailed result tables"):
-                    st.subheader("Full Per-Run Results for Trial")
-
-                    st.dataframe(my_trial.df_trial_results.T)
-
-                    st.subheader(
-                        "Full Per-Patient Results for Trial (Including Warm-Up)"
-                    )
-
-                    st.dataframe(my_trial.trial_patient_df)
-
-                    st.subheader("Ward Occupancy Audits")
-
-                    st.dataframe(my_trial.ward_occupancy_df)
-
-                    st.subheader("SDEC Occupancy Audits")
-
-                    st.dataframe(my_trial.sdec_occupancy_df)
-
-            generate_occupancy_plots()
+            generate_occupancy_plots(
+                my_trial=my_trial,
+                warm_up_duration_days=warm_up_duration_days,
+                sim_duration_days=sim_duration_days
+            )
 
         ##############################
         #  MARK: Process Maps (DFGs) #
@@ -866,102 +974,11 @@ if button_run_pressed:
             event_log["event"] = event_log["event"].apply(
                 lambda x: x.replace("_time", "").replace("_", " ")
             )
-
-            @st.fragment
-            def plot_dfg_per_feature(split_vars=split_vars, event_log=event_log):
-                selected_facet_var = st.selectbox(
-                    "Select a metric to facet the values by",
-                    options=[None] + list(split_vars.keys()),
-                    key="selected_facet_var_dfg",
-                )
-
-                time_format = st.radio(
-                    "Time Format",
-                    ["Display in Minutes", "Display in Hours", "Display in Days"],
-                )
-
-                event_log_final = event_log.copy()
-
-                if time_format == "Display in Minutes":
-                    unit = "minutes"
-
-                elif time_format == "Display in Hours":
-                    event_log_final["time"] = event_log_final["time"]
-                    unit = "hours"
-
-                elif time_format == "Display in Days":
-                    # Convert sim time in minutes to hours (/60) then to days (/24)
-                    event_log_final["time"] = event_log_final["time"]
-                    unit = "days"
-
-                event_log_final = add_sim_timestamp(
-                    event_log_final, time_unit="minutes"
-                )
-
-                if selected_facet_var is None:
-                    nodes, edges = discover_dfg(
-                        event_log_final, case_col="id", time_unit=unit
-                    )
-
-                    st.image(
-                        dfg_to_graphviz(
-                            nodes,
-                            edges,
-                            return_image=True,
-                            size=[8, 4],
-                            dpi=500,
-                            direction="TD",
-                            time_unit=unit,
-                        ),
-                        width="content",
-                    )
-                else:
-                    selected_facet_value = split_vars[selected_facet_var]
-
-                    if patient_df[selected_facet_value].nunique(dropna=False) > 3:
-                        dfg_tabs = st.tabs(
-                            [str(x) for x in patient_df[selected_facet_value].unique()]
-                        )
-                    else:
-                        dfg_tabs = st.columns(
-                            patient_df[selected_facet_value].nunique(dropna=False)
-                        )
-
-                    for idx, var in enumerate(
-                        patient_df[selected_facet_value].unique()
-                    ):
-                        event_log_filtered = convert_event_log(
-                            patient_df[patient_df[selected_facet_value] == var]
-                        )
-
-                        event_log_filtered["event"] = event_log_filtered["event"].apply(
-                            lambda x: x.replace("_time", "").replace("_", " ")
-                        )
-
-                        event_log_filtered = add_sim_timestamp(event_log_filtered)
-
-                        nodes, edges = discover_dfg(
-                            event_log_filtered[
-                                event_log_filtered[selected_facet_value] == var
-                            ],
-                            case_col="id",
-                            time_unit=unit,
-                        )
-
-                        dfg_tabs[idx].image(
-                            dfg_to_graphviz(
-                                nodes,
-                                edges,
-                                return_image=True,
-                                size=[8, 4],
-                                dpi=500,
-                                direction="TD",
-                                time_unit=unit,
-                                title=f"{selected_facet_value}: {var}",
-                            )
-                        )
-
-            plot_dfg_per_feature()
+            plot_dfg_per_feature(
+                split_vars=split_vars,
+                event_log=event_log,
+                patient_df=patient_df
+            )
 
         with tab4:
             ####################################
@@ -988,7 +1005,9 @@ if button_run_pressed:
                     options=[None] + list(split_vars.keys()),
                 )
 
-                normalise_los_to_days = st.toggle("Change LOS from Minutes to Days?")
+                normalise_los_to_days = st.toggle(
+                    "Change LOS from Minutes to Days?"
+                )
 
                 if selected_facet_var is not None:
                     selected_facet_value = split_vars[selected_facet_var]
@@ -1010,12 +1029,14 @@ if button_run_pressed:
                             facet_row=selected_facet_value,
                             facet_col="variable",
                             # Scale plot with number of variables
-                            height=200 * len(df[selected_facet_value].unique()),
+                            height=200*len(df[selected_facet_value].unique()),
                         )
                     )
 
                 else:
-                    df = patient_df[selected_values].melt(id_vars=["id", "run"]).copy()
+                    df = patient_df[selected_values].melt(
+                        id_vars=["id", "run"]
+                    ).copy()
                     if normalise_los_to_days:
                         df["value"] = df["value"] / 60 / 24
                     st.plotly_chart(
@@ -1032,11 +1053,13 @@ if button_run_pressed:
         # MARK: Animation       #
         #########################
         with tab5:
-            # This needs to receive the full dataframe, including patients generated
-            # before the warm-up period elapsed
+            # This needs to receive the full dataframe, including patients
+            # generated before the warm-up period elapsed
             # st.write("Event Log")
             # st.write(event_log)
-            # st.plotly_chart(create_vidigi_animation_advanced(event_log, scenario=g()))
+            # st.plotly_chart(
+            #     create_vidigi_animation_advanced(event_log, scenario=g())
+            # )
 
             # st.write(create_vidigi_animation(event_log, scenario=g()))
             st.write("Coming Soon!")

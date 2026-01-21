@@ -1,8 +1,17 @@
-import plotly.express as px
+"""
+Create occupancy plot.
+"""
+
 import numpy as np
-import streamlit as st
 import pandas as pd
+import plotly.express as px
 import plotly.graph_objects as go
+import streamlit as st
+from vidigi.process_mapping import (
+    add_sim_timestamp, discover_dfg, dfg_to_graphviz
+)
+
+from convert_event_log import convert_event_log
 
 
 def plot_occupancy(
@@ -10,9 +19,28 @@ def plot_occupancy(
     total_sim_duration_days,
     warm_up_duration_days,
     plot_confidence_intervals=False,
-    lower_ci=0.1,
-    upper_ci=0.9,
 ):
+    """
+    Plot occupancy over time, optionally with confidence bands.
+
+    Parameters
+    ----------
+    occ_df : pd.DataFrame
+        Data frame with columns "Time" (minutes), "Occupancy", and "run".
+    total_sim_days : float
+        Total simulation duration in days.
+    warm_up_days : float
+        Warm-up duration in days; shown as a vertical line.
+    plot_confidence_intervals : bool, optional
+        If True, plot median and quantile bands across runs.
+        If False, plot individual runs plus mean and rolling mean.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        Plotly figure showing occupancy trajectories.
+    """
+    # Convert from minutes to days
     occupancy_df["Days"] = occupancy_df["Time"] / 60 / 24
 
     # Define regular grid
@@ -22,8 +50,8 @@ def plot_occupancy(
         1 / 24,  # hourly
     )
 
+    # Resample each run to the common grid (step-wise, ffill)
     resampled = []
-
     for run, g in occupancy_df.sort_values("Days").groupby("run"):
         g = g.set_index("Days")[["Occupancy"]]
         g = g.reindex(grid_days, method="ffill")
@@ -33,9 +61,11 @@ def plot_occupancy(
 
     grid_df = pd.concat(resampled, ignore_index=True)
 
+    # Mean occupancy across runs on the grid
     mean_df = grid_df.groupby("Days", as_index=False)["Occupancy"].mean()
 
     if plot_confidence_intervals:
+        # Summary quantiles across runs at each time point
         summary_df = (
             grid_df.groupby("Days")["Occupancy"]
             .agg(
@@ -52,12 +82,13 @@ def plot_occupancy(
 
         occupancy_fig = go.Figure()
 
+        # Min-max band (lightest)
         occupancy_fig.add_trace(
             go.Scatter(
                 x=summary_df["Days"],
                 y=summary_df["max"],
                 mode="lines",
-                line=dict(width=0),
+                line={"width": 0},
                 line_shape="hv",
                 showlegend=False,
             )
@@ -68,7 +99,7 @@ def plot_occupancy(
                 x=summary_df["Days"],
                 y=summary_df["min"],
                 mode="lines",
-                line=dict(width=0),
+                line={"width": 0},
                 line_shape="hv",
                 fill="tonexty",
                 name="Min–Max",
@@ -76,13 +107,13 @@ def plot_occupancy(
             )
         )
 
-        # --- 10–90% band ---
+        # 10-90% band
         occupancy_fig.add_trace(
             go.Scatter(
                 x=summary_df["Days"],
                 y=summary_df["p90"],
                 mode="lines",
-                line=dict(width=0),
+                line={"width": 0},
                 line_shape="hv",
                 showlegend=False,
             )
@@ -93,7 +124,7 @@ def plot_occupancy(
                 x=summary_df["Days"],
                 y=summary_df["p10"],
                 mode="lines",
-                line=dict(width=0),
+                line={"width": 0},
                 line_shape="hv",
                 fill="tonexty",
                 name="10–90%",
@@ -101,13 +132,13 @@ def plot_occupancy(
             )
         )
 
-        # --- 25–75% band (darkest) ---
+        # 25=75% band (darkest)
         occupancy_fig.add_trace(
             go.Scatter(
                 x=summary_df["Days"],
                 y=summary_df["p75"],
                 mode="lines",
-                line=dict(width=0),
+                line={"width": 0},
                 line_shape="hv",
                 showlegend=False,
             )
@@ -118,7 +149,7 @@ def plot_occupancy(
                 x=summary_df["Days"],
                 y=summary_df["p25"],
                 mode="lines",
-                line=dict(width=0),
+                line={"width": 0},
                 line_shape="hv",
                 fill="tonexty",
                 name="25–75%",
@@ -126,7 +157,7 @@ def plot_occupancy(
             )
         )
 
-        # --- Median line ---
+        # Median line
         occupancy_fig.add_trace(
             go.Scatter(
                 x=summary_df["Days"],
@@ -134,7 +165,7 @@ def plot_occupancy(
                 mode="lines",
                 line_shape="hv",
                 name="Median",
-                line=dict(width=1.5, color="black"),
+                line={"width": 1.5, "color": "black"},
             )
         )
 
@@ -144,22 +175,24 @@ def plot_occupancy(
         )
 
     else:
+        # Rolling mean of mean occupancy (7-day window)
         mean_df["rolling_mean_7"] = (
             mean_df["Occupancy"].rolling(window=7, center=True).mean()
         )
 
-        # Create a line plot with one line per
-        occupancy_fig = px.line(occupancy_df, x="Days", y="Occupancy", color="run")
-
+        # Create a line plot with one line per run
+        occupancy_fig = px.line(
+            occupancy_df, x="Days", y="Occupancy", color="run"
+        )
         occupancy_fig.update_traces(opacity=0.3)
 
-        # Add mean line
+        # Add mean line across runs
         occupancy_fig.add_scatter(
             x=mean_df["Days"],
             y=mean_df["Occupancy"],
             mode="lines",
             name="Mean across runs",
-            line=dict(width=2, color="black"),
+            line={"width": 2, "color": "black"},
         )
 
         # Add rolling mean line
@@ -168,9 +201,10 @@ def plot_occupancy(
             y=mean_df["rolling_mean_7"],
             mode="lines",
             name="7-day rolling mean",
-            line=dict(width=1, color="green"),
+            line={"width": 1, "color": "green"},
         )
 
+    # Mark warm-up period end
     occupancy_fig.add_vline(
         x=warm_up_duration_days,
         line_width=3,
@@ -179,3 +213,199 @@ def plot_occupancy(
     )
 
     return occupancy_fig
+
+
+@st.fragment
+def plot_dfg_per_feature(split_vars, event_log, patient_df):
+    """
+    Plot directly-follows graphs (DFGs) optionally faceted by a
+    patient-level variable.
+
+    Parameters
+    ----------
+    split_vars : dict
+        Mapping from user-facing facet labels to column names in `patient_df`.
+    event_log : pandas.DataFrame
+        Event log for all patients.
+    patient_df : pandas.DataFrame
+        Patient-level table containing the variables that can be used for
+        faceting.
+
+    Returns
+    -------
+    None
+        The function renders DFG images directly in the
+        Streamlit app.
+    """
+    # Choose an optional faceting variable
+    selected_facet_var = st.selectbox(
+        "Select a metric to facet the values by",
+        options=[None] + list(split_vars.keys()),
+        key="selected_facet_var_dfg",
+    )
+
+    # Choose the time display label for the DFG
+    time_format = st.radio(
+        "Time Format",
+        ["Display in Minutes", "Display in Hours",
+            "Display in Days"],
+    )
+
+    event_log_final = event_log.copy()
+
+    if time_format == "Display in Minutes":
+        unit = "minutes"
+    elif time_format == "Display in Hours":
+        unit = "hours"
+    elif time_format == "Display in Days":
+        unit = "days"
+
+    # Add human-readable timestamps for plotting or annotation
+    event_log_final = add_sim_timestamp(
+        event_log_final, time_unit="minutes"
+    )
+
+    if selected_facet_var is None:
+        # Single DFG over all cases
+        nodes, edges = discover_dfg(
+            event_log_final, case_col="id", time_unit=unit
+        )
+
+        st.image(
+            dfg_to_graphviz(
+                nodes,
+                edges,
+                return_image=True,
+                size=[8, 4],
+                dpi=500,
+                direction="TD",
+                time_unit=unit,
+            ),
+            width="content",
+        )
+    else:
+        # Facet DFGs by the selected patient-level variable
+        selected_facet_value = split_vars[selected_facet_var]
+
+        # Many categories -> use tabs; few -> use columns
+        if patient_df[selected_facet_value].nunique(dropna=False) > 3:
+            dfg_tabs = st.tabs(
+                [str(x) for x in patient_df[selected_facet_value].unique()]
+            )
+        else:
+            dfg_tabs = st.columns(
+                patient_df[selected_facet_value].nunique(dropna=False)
+            )
+
+        for idx, var in enumerate(
+            patient_df[selected_facet_value].unique()
+        ):
+            # Rebuild the event log restricted to this subgroup
+            event_log_filtered = convert_event_log(
+                patient_df[patient_df[selected_facet_value] == var]
+            )
+
+            # Make event labels more readable for plotting
+            event_log_filtered["event"] = event_log_filtered["event"].apply(
+                lambda x: x.replace("_time", "").replace("_", " ")
+            )
+
+            # Add timestamps for the filtered event log
+            event_log_filtered = add_sim_timestamp(event_log_filtered)
+
+            # Build a DFG for this subgroup
+            nodes, edges = discover_dfg(
+                event_log_filtered,
+                case_col="id",
+                time_unit=unit,
+            )
+
+            # If there are no edges, skip plotting
+            if len(edges) == 0:
+                dfg_tabs[idx].write(f"""
+No process map could be generated for {selected_facet_var} = {var} because
+there are no directly-follows relationships in this subgroup."
+                """)
+                continue
+
+            # Otherwise, render plot
+            dfg_tabs[idx].image(
+                dfg_to_graphviz(
+                    nodes,
+                    edges,
+                    return_image=True,
+                    size=[8, 4],
+                    dpi=500,
+                    direction="TD",
+                    time_unit=unit,
+                    title=f"{selected_facet_value}: {var}",
+                )
+            )
+
+
+@st.fragment
+def generate_occupancy_plots(
+    my_trial, warm_up_duration_days, sim_duration_days
+):
+    """
+    Display ward and SDEC occupancy plots and related result tables.
+
+    Parameters
+    ----------
+    my_trial : object
+        Trial object containing simulation results, including
+        attributes such as `ward_occupancy_df`,
+        `sdec_occupancy_df`, ``df_trial_results` and
+        `trial_patient_df`.
+    warm_up_duration_days : float
+        Warm-up duration in days. Used both for plotting and
+        to mark the end of the warm-up on the occupancy plots.
+    sim_duration_days : float
+        Main simulation duration in days (excluding warm-up).
+
+    Returns
+    -------
+    None
+        The function renders Plotly charts and data tables
+        directly in the Streamlit app.
+    """
+    # Toggle whether to show quantile bands around occupancy
+    conf_intervals = st.toggle(
+        "Show Confidence Intervals", value=True
+    )
+
+    st.subheader("Ward Occupancy Over Time")
+    ward_occupancy_fig = plot_occupancy(
+        occupancy_df=my_trial.ward_occupancy_df,
+        total_sim_duration_days=(
+            warm_up_duration_days + sim_duration_days
+        ),
+        warm_up_duration_days=warm_up_duration_days,
+        plot_confidence_intervals=conf_intervals,
+    )
+    st.plotly_chart(ward_occupancy_fig)
+
+    st.subheader("SDEC Occupancy Over Time")
+    sdec_occupancy_fig = plot_occupancy(
+        occupancy_df=my_trial.sdec_occupancy_df,
+        total_sim_duration_days=(
+            warm_up_duration_days + sim_duration_days
+        ),
+        warm_up_duration_days=warm_up_duration_days,
+        plot_confidence_intervals=conf_intervals,
+    )
+    st.plotly_chart(sdec_occupancy_fig)
+
+    # Detailed tabular outputs below the plots
+    with st.expander("Click to view detailed result tables"):
+        st.subheader("Full Per-Run Results for Trial")
+        st.dataframe(my_trial.df_trial_results.T)
+
+        st.subheader("ull Per-Patient Results for Trial (Including Warm-Up)")
+        st.dataframe(my_trial.trial_patient_df)
+
+        st.subheader("Ward Occupancy Audits")
+        st.dataframe(my_trial.ward_occupancy_df)
+
+        st.subheader("SDEC Occupancy Audits")
+        st.dataframe(my_trial.sdec_occupancy_df)

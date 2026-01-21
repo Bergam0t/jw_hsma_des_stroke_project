@@ -1,54 +1,105 @@
-# Discrete Event Simulation of a Stroke Unit - what impact do specialised stroke same day emergency care units and ct perfusion scanning have on stroke patient flow?
+# Discrete Event Simulation of a Stroke Unit: What impact do specialised stroke same day emergency care units and CT perfusion scanning have on stroke patient flow?
 
-This repository contains a discrete event simulation of
+This repository contains a discrete event simulation of **Hyper Acute and Acute Stroke Pathways at Maidstone and Tunbridge Wells Trust**.
 
-This project was written as part of the sixth round of the [Health Service Modelling Associates (HSMA) Programme](https://www.hsma.co.uk).
+It focuses on two key components of the stroke pathway:
+
+* **Same Day Emergency Care (SDEC)** - a faster, outpatient-focused pathway where all suspected stroke patients are assessed, with only those needing further care admitted and others discharged the same day with follow‑up support.
+* **CT Perfusion (CTP) scanning** - advanced imaging that identifies more patients eligible for time‑critical treatments such as thrombolysis, often shortening length of stay and reducing bed occupancy costs.
+
+The model explores how expanding SDEC opening hours and increasing access to CTP scanning affect patient flow, bed occupancy, treatment rates and overall costs, including whether savings from fewer admissions and shorter stays can more than offset the extra service costs.
+
+The model has helped transformed stroke care, improving outcomes and potentially saving over £2 million a year. To learn move, click below to open an article from the National Institute for Health and Care Research (NIHR):
+
+[![NIHR article](docs/assets/nihr_preview.png)](https://arc-swp.nihr.ac.uk/news/transforming-stroke-care-through-simulation-how-one-hsma-graduates-model-could-save-over-2-million-annually/)
+
+This project was written as part of the sixth round of the [Health Service Modelling Associates (HSMA) Programme](https://www.hsma.co.uk). Click below to watch a presentation about this project from the HSMA showcase:
+
+[![Watch the video](https://img.youtube.com/vi/ThltRNDt9k8/maxresdefault.jpg)](https://youtu.be/ThltRNDt9k8)
+
+You can also [view the slides shared](https://docs.google.com/presentation/d/18iYB7-1nJOU_3Nr0gHVSPVSsEy-VDgdz/edit?usp=drive_link&ouid=104927246423235110137&rtpof=true&sd=true).
+
+
+<br>
 
 ## Contributors
 
-The majority of the work in this repository has been undertaken by [jfwilliams4](https://github.com/jfwilliams4).
+The majority of the work in this repository has been undertaken by **John Williams** ([jfwilliams4](https://github.com/jfwilliams4)), a Stroke Performance Analyst at Maidstone and Tunbridge Wells NHS Trust.
 
-Additional tweaks, documentation creation and web app creation has been undertaken by [Bergam0t](https://github.com/Bergam0t).
+Additional tweaks, documentation creation and web app creation has been undertaken by Sammi Rosser ([Bergam0t](https://github.com/Bergam0t)), a trainer on the HSMA Programme.
 
-## Data used for Parameterising the Model
+<br>
 
-This model is parameterised using data from
+## Data used for parameterising the model
 
-- the Sentinel Stroke National Audit Programme (SSNAP)
-- locally collected data from Maidstone Hospital
-- general research on stroke care
+This model is parameterised using data from:
+
+- The Sentinel Stroke National Audit Programme (SSNAP).
+- Locally collected data from Maidstone Hospital.
+- General research on stroke care.
+
+<br>
 
 ## Environment setup
 
-Install environment using requirements.txt or environment.yml, found in the **environment** folder.
+Install the environment using `requirements.txt` or `environment.yml` (tested with Python 3.12.10), found in the `environment/` folder. For example:
 
-This should automatically install the model code.
-However, if you receive errors about `stroke_ward_model` not being found, run `pip install . -e` while in the environment you created to install the model code.
+```
+conda env create --file environment/environment.yml
+```
 
-The requirements.txt environment has been tested with Python 3.12.10
+This should automatically install the model code. If you receive errors about `stroke_ward_model` not being found in the environment you created then run: `pip install -e .`
 
-## Web App
+**Note:** Legacy environments are also available in `win_environment/` and `mac_environment/`, but it is recommended that you use those provided in `environment/`.
+
+<br>
+
+## Running the model
+
+To run the model via a script, run:
+
+```
+python scripts/run_stroke_admission_model.py
+```
+
+You will be prompted for inputs:
+
+* Write results to CSV?
+* Generate graph per run?
+* Choose number of ward beds
+* Run SDEC with full therapy support?
+* What percentage of the day should the SDEC be available?
+* What percentage of the day should the CTP be available?
+
+The typical runtime is around 2-3 minutes.
+
+<br>
+
+## Web app
+
+It is possible to run the model via a script, but for easy access to model parameters and all results tables and outputs, it is recommended to use the web app interface.
 
 The hosted web app is available at [stroke-des.streamlit.app/](https://stroke-des.streamlit.app/).
 
-### Running the Web App locally
+[![Screenshot from the web app](docs/assets/app_preview.png)](https://stroke-des.streamlit.app/)
 
-To run the web app locally, ensure you have installed the environment as above, then open a terminal in the root of the repository and run the command `streamlit run app/streamlit_app.py`.
+If you are unable to install Python code locally, you can use this free hosted version of the app, though note it may run more slowly.
 
-It is recommended to run the command above rather than moving into the `app` directory and running the streamlit command from there.
+To run the web app locally, you will need to install a separate environment provided in the `app/` folder. This is a reduced environment used by the hosted version of the web app on Streamlit Community Cloud. It does not install `mkdocs`, `pytest`, and other packages needed only for wider repository tasks. This `app/` environment must be manually updated whenever changes are made to the files in `environment/`.
 
-### Web App Environment
+Once the environment is installed, open a terminal in the root of the repository and run:
 
-Note that a separate environment is made available in the folder app/
+```
+streamlit run app/streamlit_app.py
+```
 
-This is a reduced environment used by the hosted web app version on Streamlit community cloud, which does not install mkdocs, pytest, and other similar packages that are used for wider repository tasks but not for running the web app.
-
-This environment will need to be manually updated when making changes to the requirements.txt in the root of the folder.
+<br>
 
 ## Changelog
 
 Please note all changes made to the code in the file `docs/CHANGELOG.md`.
 
+<br>
 
 ## Documentation
 
@@ -56,7 +107,7 @@ The documentation site is provided using mkdocs-material and mkdocstrings.
 
 It can be accessed at [sammirosser.com/jw_hsma_des_stroke_project/](http://sammirosser.com/jw_hsma_des_stroke_project/)
 
-### Updating the Documentation
+### Updating the documentation
 
 The changelog will automatically be pulled into the documentation.
 
@@ -70,7 +121,7 @@ You can preview the docs with the command `mkdocs serve`.
 
 However, all publishing of the site is handled by GitHub actions (.github/workflows/publish-docs.yml); you do not need to build the documentation locally for it to update.
 
-### Setting Up the Documentation After Forking
+### Setting up the documentation after forking
 
 **If you are forking this repository**, you will need to go to your repository settings, then to 'pages', and choose 'Deploy from a branch', then make sure it is set to 'gh-pages' '/(root)', then save your selection.
 
