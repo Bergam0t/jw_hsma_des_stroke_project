@@ -1,7 +1,10 @@
-import plotly.express as px
+"""
+Create occupancy plot.
+"""
+
 import numpy as np
-import streamlit as st
 import pandas as pd
+import plotly.express as px
 import plotly.graph_objects as go
 
 
@@ -10,9 +13,28 @@ def plot_occupancy(
     total_sim_duration_days,
     warm_up_duration_days,
     plot_confidence_intervals=False,
-    lower_ci=0.1,
-    upper_ci=0.9,
 ):
+    """
+    Plot occupancy over time, optionally with confidence bands.
+
+    Parameters
+    ----------
+    occ_df : pd.DataFrame
+        Data frame with columns "Time" (minutes), "Occupancy", and "run".
+    total_sim_days : float
+        Total simulation duration in days.
+    warm_up_days : float
+        Warm-up duration in days; shown as a vertical line.
+    plot_confidence_intervals : bool, optional
+        If True, plot median and quantile bands across runs.
+        If False, plot individual runs plus mean and rolling mean.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        Plotly figure showing occupancy trajectories.
+    """
+    # Convert from minutes to days
     occupancy_df["Days"] = occupancy_df["Time"] / 60 / 24
 
     # Define regular grid
@@ -22,8 +44,8 @@ def plot_occupancy(
         1 / 24,  # hourly
     )
 
+    # Resample each run to the common grid (step-wise, ffill)
     resampled = []
-
     for run, g in occupancy_df.sort_values("Days").groupby("run"):
         g = g.set_index("Days")[["Occupancy"]]
         g = g.reindex(grid_days, method="ffill")
@@ -33,9 +55,11 @@ def plot_occupancy(
 
     grid_df = pd.concat(resampled, ignore_index=True)
 
+    # Mean occupancy across runs on the grid
     mean_df = grid_df.groupby("Days", as_index=False)["Occupancy"].mean()
 
     if plot_confidence_intervals:
+        # Summary quantiles across runs at each time point
         summary_df = (
             grid_df.groupby("Days")["Occupancy"]
             .agg(
@@ -52,12 +76,13 @@ def plot_occupancy(
 
         occupancy_fig = go.Figure()
 
+        # Min-max band (lightest)
         occupancy_fig.add_trace(
             go.Scatter(
                 x=summary_df["Days"],
                 y=summary_df["max"],
                 mode="lines",
-                line=dict(width=0),
+                line={"width": 0},
                 line_shape="hv",
                 showlegend=False,
             )
@@ -68,7 +93,7 @@ def plot_occupancy(
                 x=summary_df["Days"],
                 y=summary_df["min"],
                 mode="lines",
-                line=dict(width=0),
+                line={"width": 0},
                 line_shape="hv",
                 fill="tonexty",
                 name="Min–Max",
@@ -76,13 +101,13 @@ def plot_occupancy(
             )
         )
 
-        # --- 10–90% band ---
+        # 10-90% band
         occupancy_fig.add_trace(
             go.Scatter(
                 x=summary_df["Days"],
                 y=summary_df["p90"],
                 mode="lines",
-                line=dict(width=0),
+                line={"width": 0},
                 line_shape="hv",
                 showlegend=False,
             )
@@ -93,7 +118,7 @@ def plot_occupancy(
                 x=summary_df["Days"],
                 y=summary_df["p10"],
                 mode="lines",
-                line=dict(width=0),
+                line={"width": 0},
                 line_shape="hv",
                 fill="tonexty",
                 name="10–90%",
@@ -101,13 +126,13 @@ def plot_occupancy(
             )
         )
 
-        # --- 25–75% band (darkest) ---
+        # 25=75% band (darkest)
         occupancy_fig.add_trace(
             go.Scatter(
                 x=summary_df["Days"],
                 y=summary_df["p75"],
                 mode="lines",
-                line=dict(width=0),
+                line={"width": 0},
                 line_shape="hv",
                 showlegend=False,
             )
@@ -118,7 +143,7 @@ def plot_occupancy(
                 x=summary_df["Days"],
                 y=summary_df["p25"],
                 mode="lines",
-                line=dict(width=0),
+                line={"width": 0},
                 line_shape="hv",
                 fill="tonexty",
                 name="25–75%",
@@ -126,7 +151,7 @@ def plot_occupancy(
             )
         )
 
-        # --- Median line ---
+        # Median line
         occupancy_fig.add_trace(
             go.Scatter(
                 x=summary_df["Days"],
@@ -134,7 +159,7 @@ def plot_occupancy(
                 mode="lines",
                 line_shape="hv",
                 name="Median",
-                line=dict(width=1.5, color="black"),
+                line={"width": 1.5, "color": "black"},
             )
         )
 
@@ -144,22 +169,24 @@ def plot_occupancy(
         )
 
     else:
+        # Rolling mean of mean occupancy (7-day window)
         mean_df["rolling_mean_7"] = (
             mean_df["Occupancy"].rolling(window=7, center=True).mean()
         )
 
-        # Create a line plot with one line per
-        occupancy_fig = px.line(occupancy_df, x="Days", y="Occupancy", color="run")
-
+        # Create a line plot with one line per run
+        occupancy_fig = px.line(
+            occupancy_df, x="Days", y="Occupancy", color="run"
+        )
         occupancy_fig.update_traces(opacity=0.3)
 
-        # Add mean line
+        # Add mean line across runs
         occupancy_fig.add_scatter(
             x=mean_df["Days"],
             y=mean_df["Occupancy"],
             mode="lines",
             name="Mean across runs",
-            line=dict(width=2, color="black"),
+            line={"width": 2, "color": "black"},
         )
 
         # Add rolling mean line
@@ -168,9 +195,10 @@ def plot_occupancy(
             y=mean_df["rolling_mean_7"],
             mode="lines",
             name="7-day rolling mean",
-            line=dict(width=1, color="green"),
+            line={"width": 1, "color": "green"},
         )
 
+    # Mark warm-up period end
     occupancy_fig.add_vline(
         x=warm_up_duration_days,
         line_width=3,
