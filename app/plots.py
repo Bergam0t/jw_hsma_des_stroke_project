@@ -6,6 +6,12 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import streamlit as st
+from vidigi.process_mapping import (
+    add_sim_timestamp, discover_dfg, dfg_to_graphviz
+)
+
+from convert_event_log import convert_event_log
 
 
 def plot_occupancy(
@@ -207,3 +213,192 @@ def plot_occupancy(
     )
 
     return occupancy_fig
+
+
+@st.fragment
+def plot_dfg_per_feature(split_vars, event_log, patient_df):
+    """
+    Plot directly-follows graphs (DFGs) optionally faceted by a
+    patient-level variable.
+
+    Parameters
+    ----------
+    split_vars : dict
+        Mapping from user-facing facet labels to column names in `patient_df`.
+    event_log : pandas.DataFrame
+        Event log for all patients.
+    patient_df : pandas.DataFrame
+        Patient-level table containing the variables that can be used for
+        faceting.
+
+    Returns
+    -------
+    None
+        The function renders DFG images directly in the
+        Streamlit app.
+    """
+    # Choose an optional faceting variable
+    selected_facet_var = st.selectbox(
+        "Select a metric to facet the values by",
+        options=[None] + list(split_vars.keys()),
+        key="selected_facet_var_dfg",
+    )
+
+    # Choose the time display label for the DFG
+    time_format = st.radio(
+        "Time Format",
+        ["Display in Minutes", "Display in Hours",
+            "Display in Days"],
+    )
+
+    event_log_final = event_log.copy()
+
+    if time_format == "Display in Minutes":
+        unit = "minutes"
+    elif time_format == "Display in Hours":
+        unit = "hours"
+    elif time_format == "Display in Days":
+        unit = "days"
+
+    # Add human-readable timestamps for plotting or annotation
+    event_log_final = add_sim_timestamp(
+        event_log_final, time_unit="minutes"
+    )
+
+    if selected_facet_var is None:
+        # Single DFG over all cases
+        nodes, edges = discover_dfg(
+            event_log_final, case_col="id", time_unit=unit
+        )
+
+        st.image(
+            dfg_to_graphviz(
+                nodes,
+                edges,
+                return_image=True,
+                size=[8, 4],
+                dpi=500,
+                direction="TD",
+                time_unit=unit,
+            ),
+            width="content",
+        )
+    else:
+        # Facet DFGs by the selected patient-level variable
+        selected_facet_value = split_vars[selected_facet_var]
+
+        # Many categories -> use tabs; few -> use columns
+        if patient_df[selected_facet_value].nunique(dropna=False) > 3:
+            dfg_tabs = st.tabs(
+                [str(x) for x in patient_df[selected_facet_value].unique()]
+            )
+        else:
+            dfg_tabs = st.columns(
+                patient_df[selected_facet_value].nunique(dropna=False)
+            )
+
+        for idx, var in enumerate(
+            patient_df[selected_facet_value].unique()
+        ):
+            # Rebuild the event log restricted to this subgroup
+            event_log_filtered = convert_event_log(
+                patient_df[patient_df[selected_facet_value] == var]
+            )
+
+            # Make event labels more readable for plotting
+            event_log_filtered["event"] = event_log_filtered["event"].apply(
+                lambda x: x.replace("_time", "").replace("_", " ")
+            )
+
+            # Add timestamps for the filtered event log
+            event_log_filtered = add_sim_timestamp(event_log_filtered)
+
+            # Build a DFG for this subgroup
+            nodes, edges = discover_dfg(
+                event_log_filtered[
+                    event_log_filtered[selected_facet_value] == var
+                ],
+                case_col="id",
+                time_unit=unit,
+            )
+
+            dfg_tabs[idx].image(
+                dfg_to_graphviz(
+                    nodes,
+                    edges,
+                    return_image=True,
+                    size=[8, 4],
+                    dpi=500,
+                    direction="TD",
+                    time_unit=unit,
+                    title=f"{selected_facet_value}: {var}",
+                )
+            )
+
+
+@st.fragment
+def generate_occupancy_plots(
+    my_trial, warm_up_duration_days, sim_duration_days
+):
+    """
+    Display ward and SDEC occupancy plots and related result tables.
+
+    Parameters
+    ----------
+    my_trial : object
+        Trial object containing simulation results, including
+        attributes such as `ward_occupancy_df`,
+        `sdec_occupancy_df`, ``df_trial_results` and
+        `trial_patient_df`.
+    warm_up_duration_days : float
+        Warm-up duration in days. Used both for plotting and
+        to mark the end of the warm-up on the occupancy plots.
+    sim_duration_days : float
+        Main simulation duration in days (excluding warm-up).
+
+    Returns
+    -------
+    None
+        The function renders Plotly charts and data tables
+        directly in the Streamlit app.
+    """
+    # Toggle whether to show quantile bands around occupancy
+    conf_intervals = st.toggle(
+        "Show Confidence Intervals", value=True
+    )
+
+    st.subheader("Ward Occupancy Over Time")
+    ward_occupancy_fig = plot_occupancy(
+        occupancy_df=my_trial.ward_occupancy_df,
+        total_sim_duration_days=(
+            warm_up_duration_days + sim_duration_days
+        ),
+        warm_up_duration_days=warm_up_duration_days,
+        plot_confidence_intervals=conf_intervals,
+    )
+    st.plotly_chart(ward_occupancy_fig)
+
+    st.subheader("SDEC Occupancy Over Time")
+    sdec_occupancy_fig = plot_occupancy(
+        occupancy_df=my_trial.sdec_occupancy_df,
+        total_sim_duration_days=(
+            warm_up_duration_days + sim_duration_days
+        ),
+        warm_up_duration_days=warm_up_duration_days,
+        plot_confidence_intervals=conf_intervals,
+    )
+    st.plotly_chart(sdec_occupancy_fig)
+
+    # Detailed tabular outputs below the plots
+    with st.expander("Click to view detailed result tables"):
+        st.subheader("Full Per-Run Results for Trial")
+        st.dataframe(my_trial.df_trial_results.T)
+
+        st.subheader("ull Per-Patient Results for Trial (Including Warm-Up)")
+        st.dataframe(my_trial.trial_patient_df)
+
+        st.subheader("Ward Occupancy Audits")
+        st.dataframe(my_trial.ward_occupancy_df)
+
+        st.subheader("SDEC Occupancy Audits")
+        st.dataframe(my_trial.sdec_occupancy_df)
