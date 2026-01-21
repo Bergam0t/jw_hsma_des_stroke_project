@@ -38,6 +38,7 @@ of the code for contributors with less experience in coding, have been avoided.
 ### Documentation
 
 - Add numpydoc-style docstrings to all core model features
+- Wrote comprehensive README
 - Set up documentation site using mkdocs, mkdocs-material and mkdocstrings
     - Set up automatic building and publishing of site with GitHub action
     - Added .nojekyll file to ensure GitHub doesn't try to post-process the built site
