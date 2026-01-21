@@ -408,7 +408,7 @@ if button_run_pressed:
 
                     st.caption(
                         f"""
-Available from {start_hour:g} until {end_hour:g} ({duration_hours:.1f} hours)
+Available from {start_hour:g}:00-{end_hour:g}:00 ({duration_hours:g}h)
                         """
                     )
 
@@ -434,7 +434,7 @@ Available from {start_hour:g} until {end_hour:g} ({duration_hours:.1f} hours)
 
                         st.caption(
                             f"""
-Available from {start_hour:g} until {end_hour:g} ({duration_hours:.1f} hours)
+Available from {start_hour:g}:00-{end_hour:g}:00 ({duration_hours:g}h)
                             """
                         )
                     else:
