@@ -315,13 +315,20 @@ def plot_dfg_per_feature(split_vars, event_log, patient_df):
 
             # Build a DFG for this subgroup
             nodes, edges = discover_dfg(
-                event_log_filtered[
-                    event_log_filtered[selected_facet_value] == var
-                ],
+                event_log_filtered,
                 case_col="id",
                 time_unit=unit,
             )
 
+            # If there are no edges, skip plotting
+            if len(edges) == 0:
+                dfg_tabs[idx].write(f"""
+No process map could be generated for {selected_facet_var} = {var} because
+there are no directly-follows relationships in this subgroup."
+                """)
+                continue
+
+            # Otherwise, render plot
             dfg_tabs[idx].image(
                 dfg_to_graphviz(
                     nodes,
