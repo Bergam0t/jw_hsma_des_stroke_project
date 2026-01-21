@@ -284,10 +284,9 @@ out-of-hours?
     ###############################
     st.subheader("Model Parameters (ADVANCED)")
 
-    number_of_runs = st.number_input(
+    g.number_of_runs = st.number_input(
         "Number of Runs", min_value=1, max_value=100, value=10
     )
-    g.number_of_runs = number_of_runs
 
     # TODO: Are people likely to want to simulate partial years?
     # Could switch to number of years slider instead if not for ease.
@@ -482,13 +481,7 @@ Available from {start_hour:g} until {end_hour:g} ({duration_hours:.1f} hours)
             ) * 365
 
             st.divider()
-
             st.subheader("Patient throughoutput")
-
-            st.write(f"""
-These are the average results from across the {g.number_of_runs}
-simulation runs.
-            """)
 
             pcol1, pcol2, pcol3, pcol4 = st.columns(4)
 
@@ -624,9 +617,10 @@ year{'' if sim_duration_days // 365 == 1 else 's'} and
                     )
 
                     st.caption(f"""
-The average total savings for the full model period of {sim_duration_display}
-were £{my_trial.df_trial_results['Thrombolysis Savings (£)'].mean():,.0f}.
-                    """)
+The average total savings for the full model period
+of {sim_duration_display} were
+£{my_trial.df_trial_results['Thrombolysis Savings (£)'].mean():,.0f}.
+""")
 
             # Add container with SDEC savings per year
             sdec_yearly_save = (
@@ -648,9 +642,10 @@ were £{my_trial.df_trial_results['Thrombolysis Savings (£)'].mean():,.0f}.
                     )
 
                     st.caption(f"""
-The average total savings for the full model period of {sim_duration_display}
-were £{my_trial.df_trial_results['SDEC Savings (£)'].mean():,.0f}.
-This is calculated as the total savings from running the SDEC, subtracting the
+The average total savings for the full model period
+of {sim_duration_display} were
+£{my_trial.df_trial_results['SDEC Savings (£)'].mean():,.0f}. This is
+calculated as the total savings from running the SDEC, subtracting the
 medical cost of running the SDEC. SDEC running costs are set to
 £{(g.sdec_dr_cost_min * 60):.2f} per hour.
                     """)
@@ -676,8 +671,9 @@ medical cost of running the SDEC. SDEC running costs are set to
 
                     st.caption(
                         f"""
-The average total savings for the full model period of {sim_duration_display}
-were £{my_trial.df_trial_results['Total Savings'].mean():,.0f}.
+The average total savings for the full model period
+of {sim_duration_display} were
+£{my_trial.df_trial_results['Total Savings'].mean():,.0f}.
                         """
                     )
 
@@ -732,8 +728,8 @@ This is an average occupancy of {(mean_ward_occ / g.number_of_ward_beds):.1%}
 
                     st.caption(
                         f"""
-The average total number of admissions avoided for the full model period of
-{sim_duration_display} were
+The average total number of admissions avoided for the full model period
+of {sim_duration_display} were
 {my_trial.df_trial_results['Number of Admissions Avoided In Run'].mean():,.0f}.
 Avoided admissions are those patients who were able to leave after being seen
 in SDEC, and would have had a full admission if the SDEC was not available.
@@ -790,8 +786,8 @@ thrombolysis due to the enhanced capabilities of the CTP scanner.
 
                     st.caption(
                         f"""
-The average number of admissions that were delayed for the full model period of
-{sim_duration_display} were
+The average number of admissions that were delayed for the full model period
+of {sim_duration_display} were
 {my_trial.df_trial_results['Number of Admission Delays'].mean():,.0f}.
                         """
                     )
