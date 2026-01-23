@@ -31,7 +31,7 @@ class TrialPlots:
         plotly.graph_objs._figure.Figure
             Plotly Figure object showing the distribution of `sdec_los` values.
         """
-        return px.histogram(data=self.trial_patient_df, x="sdec_los")
+        return px.histogram(self.trial_patient_df, x="sdec_los")
 
 
 if __name__ == "__ main __":
