@@ -89,12 +89,14 @@ from stroke_ward_model.entities import Patient
 def test_patient_default_attributes(
     attr, expected_type, default_kind, default_value, allowed_values
 ):
-    """
-    Check each Patient attribute exists and has the expected default semantics.
-    """
+    """Check each Patient attribute exists and has the expected default."""
     patient = Patient(p_id=123)
     value = getattr(patient, attr)
 
+    # Check that the attribute has the correct default state:
+    # "nan" - numeric but intentionally uninitialised
+    # "none" - intentionally unset
+    # "value" - concrete default value
     if default_kind == "nan":
         assert isinstance(value, expected_type)
         assert np.isnan(value)
@@ -109,6 +111,8 @@ def test_patient_default_attributes(
     else:
         pytest.fail(f"Unknown default_kind '{default_kind}'")
 
+    # If a real (non-None, non-NaN) value exists, ensure it is within the
+    # allowed set of values
     if allowed_values is not None and value is not None and not (
         isinstance(value, float) and np.isnan(value)
     ):
