@@ -69,10 +69,10 @@ def initialise_distributions(self):
     )
 
     self.tia_ward_time_dist = Exponential(
-        mean=g.mean_n_non_stroke_ward_time, random_seed=seeds[17]
+        mean=g.mean_n_tia_ward_time, random_seed=seeds[17]
     )
     self.non_stroke_ward_time_dist = Exponential(
-        mean=g.mean_n_tia_ward_time, random_seed=seeds[18]
+        mean=g.mean_n_non_stroke_ward_time, random_seed=seeds[18]
     )
 
     # Patient Attribute Distributions
