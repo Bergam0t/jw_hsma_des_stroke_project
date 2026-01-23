@@ -92,10 +92,14 @@ class Patient:
         Time nurse triage began.
     nurse_triage_end_time : float
         Time nurse triage finished.
-    ct_or_ctp_scan_start_time : float
-        Time CT/CTP scan began.
-    ct_or_ctp_scan_end_time : float
-        Time CT/CTP scan finished.
+    ct_scan_start_time : float
+        Time CT scan began.
+    ctp_scan_start_time : float
+        Time CTP scan began.
+    ct_scan_end_time : float
+        Time CT scan finished.
+    ctp_scan_end_time : float
+        Time CTP scan finished.
     sdec_admit_time : float
         Time admitted to SDEC.
     sdec_discharge_time : float
