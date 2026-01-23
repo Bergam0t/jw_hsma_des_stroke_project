@@ -1,3 +1,7 @@
+"""
+Runs multiple simulation replications and aggregates run-level results.
+"""
+
 from stroke_ward_model.inputs import g
 from stroke_ward_model.model import Model
 import pandas as pd
@@ -7,18 +11,20 @@ import pandas as pd
 # MARK: Trial class
 class Trial:
     """
-    Orchestrator for running multiple simulation iterations (runs) and aggregating results.
+    Orchestrator for running multiple simulation iterations (runs) and
+    aggregating results.
 
-    The Trial class manages the execution of multiple `Model` instances as defined
-    in the global configuration. It collects performance metrics, financial data,
-    and patient-level logs from each individual run into centralized DataFrames
-    for cross-run analysis.
+    The Trial class manages the execution of multiple `Model` instances as
+    defined in the global configuration. It collects performance metrics,
+    financial data, and patient-level logs from each individual run into
+    centralised DataFrames for cross-run analysis.
 
     Attributes
     ----------
     df_trial_results : pd.DataFrame
         A summary DataFrame where each row represents a single simulation run.
-        Tracks metrics such as mean queue times, occupancy, and financial savings.
+        Tracks metrics such as mean queue times, occupancy, and financial
+        savings.
     model_objects : list
         A collection of `Model` instances created during the trial, allowing
         for post-hoc inspection of specific run states.

@@ -1,3 +1,7 @@
+"""
+Provides small utility functions to support the stroke ward simulation.
+"""
+
 def minutes_to_ampm(minutes: int) -> str:
     """
     Convert minutes since simulation start to a 12-hour AM/PM clock time.

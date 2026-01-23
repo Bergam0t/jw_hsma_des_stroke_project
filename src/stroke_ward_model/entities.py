@@ -1,3 +1,7 @@
+"""
+Defines patient entities and their attributes for the stroke ward simulation.
+"""
+
 import numpy as np
 
 
@@ -117,7 +121,8 @@ class Patient:
     sdec_full_when_required : bool or None
         State of SDEC capacity when the patient needed it.
     generated_during_warm_up : bool or None
-        Flag indicating if the patient was generated during the model warm-up period.
+        Flag indicating if the patient was generated during the model warm-up
+        period.
     journey_completed : bool or None
         Flag indicating if the patient completed the full pathway or was
         removed/processed differently.
@@ -135,10 +140,10 @@ class Patient:
         self.q_time_nurse = np.NaN  # SR NOTE - changed this to NaN by default
         self.q_time_ward = np.NaN  # SR NOTE - changed this to NaN by default
 
-        # 0 = known onset, 1 = unknown onset (in ctp range), 2 = unknown (out of
-        # ctp range)
-        # SR NOTE: I've moved all random generation to the start of their assessment
-        # to allow for reproducibility
+        # 0 = known onset, 1 = unknown onset (in ctp range),
+        # 2 = unknown (out of ctp range)
+        # SR NOTE: I've moved all random generation to the start of their
+        # assessment to allow for reproducibility
         # self.onset_type = random.randint(0, 2)
         self.onset_type = np.NaN
 
@@ -147,9 +152,10 @@ class Patient:
         self.mrs_type = np.NaN
         self.mrs_discharge = np.NaN  # SR NOTE - changed this to NaN by default
 
-        # <=5 is ICH, <=55 is I, <= 70 is TIA, <=85 is Stroke Mimic, >85 is non\
-        # stroke, this set in g class
-        # TODO: SR: This comment does not appear to be in sync with actual values seen in the g class
+        # <=5 is ICH, <=55 is I, <= 70 is TIA, <=85 is Stroke Mimic, >85 is
+        # non\stroke, this set in g class
+        # TODO: SR: This comment does not appear to be in sync with actual
+        # values seen in the g class
         # TODO: SR: Which is correct?
         # self.diagnosis = random.randint(0, 100)
         self.diagnosis = np.NaN

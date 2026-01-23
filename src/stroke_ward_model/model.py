@@ -1,3 +1,7 @@
+"""
+Implements the stroke ward simulation model, processes, and experiment logic.
+"""
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -22,9 +26,9 @@ class Model:
     """
     A SimPy simulation model representing a stroke patient pathway.
 
-    This class coordinates the simulation environment, manages clinical resources
-    (nurses, scanners, and beds), and tracks performance metrics throughout
-    the duration of a simulation run.
+    This class coordinates the simulation environment, manages clinical
+    resources (nurses, scanners, and beds), and tracks performance metrics
+    throughout the duration of a simulation run.
 
     Parameters
     ----------
@@ -36,8 +40,8 @@ class Model:
     env : simpy.core.Environment
         The SimPy environment in which the simulation is executed.
     patient_counter : int
-        A running count of patients who have entered the system, used as a unique ID.
-        This is shared across in-hours and out-of-hours arrivals.
+        A running count of patients who have entered the system, used as a
+        unique ID. This is shared across in-hours and out-of-hours arrivals.
     nurse : vidigi.resources.VidigiStore
         A SimPy resource representing stroke nurses available for assessment.
     ctp_scanner : vidigi.resources.VidigiPriorityStore
@@ -49,8 +53,8 @@ class Model:
     run_number : int
         The identifier for the current simulation iteration.
     results_df : pd.DataFrame
-        A central data repository for patient-level results, including queue times,
-        lengths of stay, and diagnostic statuses.
+        A central data repository for patient-level results, including queue
+        times, lengths of stay, and diagnostic statuses.
     sdec_freeze_counter : int
         Counter tracking the frequency of SDEC capacity freezes.
     mean_q_time_nurse : float
@@ -60,7 +64,8 @@ class Model:
     mean_los_ward : float
         The average length of stay for patients admitted to the ward.
     thrombolysis_savings : float
-        Aggregated metric representing the savings or benefits derived from thrombolysis.
+        Aggregated metric representing the savings or benefits derived from
+        thrombolysis.
     q_for_assessment : list
         A list tracking patients currently waiting in the assessment queue.
     nurse_q_graph_df : pd.DataFrame
@@ -76,7 +81,8 @@ class Model:
     occupancy_graph_df : pd.DataFrame
         Time-series data for monitoring ward occupancy levels.
     patient_objects : list
-        A collection of all `Patient` class instances created during the simulation.
+        A collection of all `Patient` class instances created during the 
+        simulation.
 
     Notes
     -----
@@ -99,9 +105,9 @@ class Model:
         # Create a SimPy resources to represent stroke nurses, ctp scanners,
         # sdec beds, and ward beds. Set in class g
 
-        # SR: I have replaced these with the Vidigi equivalents, which are functionally
-        # identical apart from also allowing the resource ID to be tracked, which is
-        # useful for animation
+        # SR: I have replaced these with the Vidigi equivalents, which are
+        # functionally identical apart from also allowing the resource ID to be
+        # tracked, which is useful for animation
         # self.nurse = simpy.Resource(self.env, capacity=g.number_of_nurses)
         self.nurse = Resource(self.env, num_resources=g.number_of_nurses)
 
@@ -200,15 +206,17 @@ class Model:
         # A list to store the patient objects
         self.patient_objects = []
 
-        # Add counts for each type of stroke patient to cross-check with this in other places
+        # Add counts for each type of stroke patient to cross-check with this
+        # in other places
         self.i_patients_count = 0
         self.ich_patients_count = 0
         self.tia_patients_count = 0
         self.stroke_mimic_patient_count = 0
         self.non_stroke_patient_count = 0
 
-        # Add a count of patients who were able to be thrombolysed due to the use of the CT
-        # perfusion scanner but otherwise would not have been able to be thrombolysed
+        # Add a count of patients who were able to be thrombolysed due to the
+        # use of the CT perfusion scanner but otherwise would not have been
+        # able to be thrombolysed
         self.additional_thrombolysis_from_ctp = 0
 
         self.initialise_distributions()
@@ -253,10 +261,10 @@ class Model:
 
         Arrival rates are determined by `random.expovariate` using the
         `g.patient_inter_day` parameter. NOTE that this does not use the
-        `g.patient_inter_day` parameter directly, and instead uses it alongside
-        a rate modifier - careful inspection of the code to understand the impacts
-        of changing `g.patient_inter_day` is recommended, and this may be adjusted
-        in a future version of the model.
+        `g.patient_inter_day` parameter directly, and instead uses it
+        alongside a rate modifier - careful inspection of the code to
+        understand the impacts of changing `g.patient_inter_day` is
+        recommended, and this may be adjusted in a future version of the model.
 
         Patients generated here have their `arrived_ooh` attribute set to False.
 
@@ -305,11 +313,12 @@ class Model:
                 # patient's journey through the system)
                 self.env.process(self.stroke_assessment(p))
 
-                # TODO: SR query: explore whether this is the most intuitive/easily managed way to
-                # handle interarrival rate. I think this means arrivals average
-                # every 200 minutes.
-                # TODO: SR query: confirm with John in case this was done in this way for a particular
-                # reason, but I've swapped it to a more intuitive use and something that will allow
+                # TODO: SR query: explore whether this is the most
+                # intuitive/easily managed way to handle interarrival rate.
+                # I think this means arrivals average every 200 minutes.
+                # TODO: SR query: confirm with John in case this was done in
+                # this way for a particular reason, but I've swapped it to a
+                # more intuitive use and something that will allow
                 # for setting via the app interface too
                 # Original code below for comparison:
                 # ----- ORIGINAL -------- #
@@ -360,10 +369,10 @@ class Model:
 
         Arrival rates are determined by `random.expovariate` using the
         `g.patient_inter_night` parameter. NOTE that this does not use the
-        `g.patient_inter_night` parameter directly, and instead uses it alongside
-        a rate modifier - careful inspection of the code to understand the impacts
-        of changing `g.patient_inter_night` is recommended, and this may be adjusted
-        in a future version of the model.
+        `g.patient_inter_night` parameter directly, and instead uses it
+        alongside a rate modifier - careful inspection of the code to
+        understand the impacts of changing `g.patient_inter_night` is
+        recommended, and this may be adjusted in a future version of the model.
 
         Patients generated here have their `arrived_ooh` attribute set to True.
 
@@ -411,11 +420,12 @@ class Model:
                 # patient's journey through the system)
                 self.env.process(self.stroke_assessment(p))
 
-                # TODO: SR query: explore whether this is the most intuitive/easily managed way to
-                # handle interarrival rate. I think this means arrivals average
-                # every 666.6 minutes.
-                # TODO: SR query: confirm with John in case this was done in this way for a particular
-                # reason, but I've swapped it to a more intuitive use and something that will allow
+                # TODO: SR query: explore whether this is the most
+                # intuitive/easily managed way to handle interarrival rate.
+                # I think this means arrivals average every 666.6 minutes.
+                # TODO: SR query: confirm with John in case this was done in
+                # this way for a particular reason, but I've swapped it to a
+                # more intuitive use and something that will allow
                 # for setting via the app interface too
                 # Original code below for comparison:
                 # ----- ORIGINAL -------- #
@@ -630,17 +640,18 @@ class Model:
             patient.patient_diagnosis = 3
             patient.patient_diagnosis_type = "Stroke Mimic"
             self.stroke_mimic_patient_count += 1
-        # SR - this was changed from an elif as was resulting in patients in between
-        # the two thresholds not getting allocated a diagnosis, which causes errors elsewhere
+        # SR - this was changed from an elif as was resulting in patients in
+        # between the two thresholds not getting allocated a diagnosis, which
+        # causes errors elsewhere
         else:
             patient.patient_diagnosis = 4
             patient.patient_diagnosis_type = "Non Stroke"
             self.non_stroke_patient_count += 1
 
-        # The below code records the patients diagnosis attribute, this is added
-        # to the DF to check the diagnosis code is working correctly.
-        # SR - refactored recording of diagnosis type in results df as that's now recorded
-        # as a patient attribute earlier
+        # The below code records the patients diagnosis attribute, this is
+        # added to the DF to check the diagnosis code is working correctly.
+        # SR - refactored recording of diagnosis type in results df as that's
+        # now recorded as a patient attribute earlier
         if self.env.now > g.warm_up_period:
             self.results_df.at[patient.id, "Diagnosis Type"] = (
                 patient.patient_diagnosis_type
@@ -648,8 +659,8 @@ class Model:
 
             self.results_df.at[patient.id, "Onset Type"] = patient.onset_type
 
-            # This code adds the Patient's MRS to the DF, this can be used to check
-            # all code that interacts with this runs correctly.
+            # This code adds the Patient's MRS to the DF, this can be used to
+            # check all code that interacts with this runs correctly.
             self.results_df.at[patient.id, "MRS Type"] = patient.mrs_type
 
         trace(
@@ -691,8 +702,8 @@ class Model:
             # Freeze the function until the request for a nurse can be met.
             # The patient is currently queuing.
             nurse_attending = yield req
-            # SR - have added recording of the resource ID that's possible as it's now
-            # using vidigi resources
+            # SR - have added recording of the resource ID that's possible as
+            # it's now using vidigi resources
             patient.nurse_attending_id = nurse_attending.id_attribute
             patient.nurse_triage_start_time = self.env.now
 
@@ -880,8 +891,9 @@ class Model:
         # For patients who have TIA, non-stroke or stroke mimic, they may be able
         # to avoid admission even if this is prior to SDEC
 
-        # TODO: SR: Confirm why this appeared twice in the original model (and still does here)
-        # and whether it should only be checked once (prior to SDEC admission) or twice
+        # TODO: SR: Confirm why this appeared twice in the original model (and
+        # still does here) and whether it should only be checked once (prior
+        # to SDEC admission) or twice
 
         self.tia_admission_chance = self.tia_admission_chance_distribution.sample()
 
@@ -893,8 +905,8 @@ class Model:
             patient.non_admission >= self.tia_admission_chance
             and patient.patient_diagnosis == 2
         ):
-            # TODO: SR: I've temporarily commented out admission avoidance here and replaced it
-            # with a bespoke flag
+            # TODO: SR: I've temporarily commented out admission avoidance here
+            # and replaced it with a bespoke flag
             # patient.admission_avoidance = True
             patient.non_admitted_tia_ns_sm = True
             trace(
@@ -909,8 +921,8 @@ class Model:
             patient.non_admission >= self.stroke_mimic_admission_chance
             and patient.patient_diagnosis > 2
         ):
-            # TODO: SR: I've temporarily commented out admission avoidance here and replaced it
-            # with a bespoke flag
+            # TODO: SR: I've temporarily commented out admission avoidance here
+            # and replaced it with a bespoke flag
             # patient.admission_avoidance = True
             patient.non_admitted_tia_ns_sm = True
             trace(
@@ -948,26 +960,28 @@ class Model:
             else:
                 patient.sdec_full_when_required = True
 
-        # SR: Note that I have changed the check from <= to < (so that patients are only allowed
-        # to request a bed when a bed is free)
+        # SR: Note that I have changed the check from <= to < (so that patients
+        # are only allowed to request a bed when a bed is free)
         if (
             g.sdec_unav == False
             and len(self.sdec_occupancy) < g.sdec_beds
             and (
-                # SR: TODO: Note that I've temporarily commented out the admission avoidance check
-                # and swapped it for checking against a new bespoke attribute
+                # SR: TODO: Note that I've temporarily commented out the
+                # admission avoidance check and swapped it for checking against
+                # a new bespoke attribute
                 # patient.admission_avoidance == False or
                 patient.non_admitted_tia_ns_sm == False
             )
         ):
-            # If the conditions above are met the patient attribute for the SDEC
-            # are changed to True and the patient is added to the SDEC occupancy
-            # list.
+            # If the conditions above are met the patient attribute for the
+            # SDEC are changed to True and the patient is added to the SDEC
+            # occupancy list.
 
-            # SR: The request is only necessary here for being able to determine which
-            # bed ends up being used, which we require for animating it correctly.
-            # However, we still need to hold it for the duration of this code block
-            # so that someone else doesn't end up in the same bed!
+            # SR: The request is only necessary here for being able to
+            # determine which bed ends up being used, which we require for 
+            # animating it correctly. However, we still need to hold it for the
+            # duration of this code block so that someone else doesn't end up
+            # in the same bed!
             with self.sdec_bed.request() as req:
                 sdec_bed_used = yield req
                 patient.sdec_bed_id = sdec_bed_used.id_attribute
@@ -1100,13 +1114,13 @@ class Model:
                             g.inpatient_bed_cost
                         )
 
-                # Regardless of whether the warm-up has passed, recording in patient
-                # object that this patient's journey was completed
+                # Regardless of whether the warm-up has passed, recording in
+                # patient object that this patient's journey was completed
                 patient.exit_time = self.env.now
                 patient.journey_completed = True
 
-                # Patients with a True admission avoidance are added to a list that is
-                # used to calculate the savings from the avoided admissions.
+                # Patients with a True admission avoidance are added to a list
+                # that is used to calculate the savings from the avoided admissions.
                 if (
                     patient.admission_avoidance == True
                     and patient.patient_diagnosis < 2
@@ -1114,8 +1128,9 @@ class Model:
                 ):
                     self.admission_avoidance.append(patient)
 
-                # This code introduces a small element of randomness into the admission
-                # rates for the non stroke, tia and stroke mimic patients.
+                # This code introduces a small element of randomness into the
+                # admission rates for the non stroke, tia and stroke mimic
+                # patients.
                 self.tia_admission_chance = (
                     self.tia_admission_chance_distribution.sample()
                 )
@@ -1124,18 +1139,19 @@ class Model:
                     self.stroke_mimic_admission_chance_distribution.sample()
                 )
 
-                # This code exists after the admission avoidance code so they are not
-                # added to the admission avoidance list, as that should only be for
-                # SDEC patients who avoid admission. This code checks if TIA, non stroke
-                # and stroke mimic patients should be admitted based on the values
-                # established in the previous code and g class.
+                # This code exists after the admission avoidance code so they
+                # are not added to the admission avoidance list, as that should
+                # only be for SDEC patients who avoid admission. This code
+                # checks if TIA, non stroke and stroke mimic patients should be
+                # admitted based on the values established in the previous code
+                # and g class.
 
                 if (
                     patient.non_admission >= self.tia_admission_chance
                     and patient.patient_diagnosis == 2
                 ):
-                    # TODO: SR: I've temporarily commented out admission avoidance here and replaced it
-                    # with a bespoke flag
+                    # TODO: SR: I've temporarily commented out admission
+                    # avoidance here and replaced it with a bespoke flag
                     # patient.admission_avoidance = True
                     patient.non_admitted_tia_ns_sm = True
 
@@ -1146,8 +1162,8 @@ class Model:
                     patient.non_admission >= self.stroke_mimic_admission_chance
                     and patient.patient_diagnosis > 2
                 ):
-                    # TODO: SR: I've temporarily commented out admission avoidance here and replaced it
-                    # with a bespoke flag
+                    # TODO: SR: I've temporarily commented out admission
+                    # avoidance here and replaced it with a bespoke flag
                     # patient.admission_avoidance = True
                     patient.non_admitted_tia_ns_sm = True
 
@@ -1163,11 +1179,11 @@ class Model:
         # ward.
 
         # TODO: sampled ward activity time is done after a bed is obtained.
-        # TODO: this is what is recorded as LOS within the model, but arguably the 'TRUE' LOS is
-        # therefore longer in the model as
+        # TODO: this is what is recorded as LOS within the model, but arguably
+        # the 'TRUE' LOS is therefore longer in the model as
         # or is LOS in these cases sampled from stroke ward LOS only?
-        # is LOS increased by spending time on an 'inappropriate' ward in the real world, and if so,
-        # does this need to be reflected here?
+        # is LOS increased by spending time on an 'inappropriate' ward in the
+        # real world, and if so, does this need to be reflected here?
 
         # if patient.admission_avoidance != True:
         if (
@@ -1772,12 +1788,14 @@ class Model:
     # This method calculates results over a single run.
     def calculate_run_results(self):
         """
-        Calculate summary statistics and financial metrics for a single simulation run.
+        Calculate summary statistics and financial metrics for a single
+        simulation run.
 
         This method aggregates raw data collected throughout the simulation,
-        performs unit conversions, and computes Key Performance Indicators (KPIs)
-        related to clinical flow and financial impact. It cleans the results
-        dataframe and updates class-level attributes for use in trial-level reporting.
+        performs unit conversions, and computes Key Performance Indicators
+        (KPIs) related to clinical flow and financial impact. It cleans the
+        results dataframe and updates class-level attributes for use in
+        trial-level reporting.
 
         - **Data Cleaning**: Removes the initial dummy row (index label 1) used
           to initialize the `results_df`.
@@ -1801,7 +1819,8 @@ class Model:
         mean_ward_occupancy : float
             The average number of beds occupied during the run.
         admission_delays : int
-            Total number of patients who experienced any wait time for a ward bed.
+            Total number of patients who experienced any wait time for a ward 
+            bed.
         mean_los_ward : float
             Average inpatient length of stay in hours.
         sdec_financial_savings : float
@@ -1847,9 +1866,10 @@ class Model:
 
         self.mean_los_ward = round(self.results_df["Ward LOS"].mean() / 60, 0)
 
-        # Note that this is using the admission avoidance MODEL attribute, which is populated
-        # entirely separately from the patient-level admission avoidance attributes and will
-        # ensure that only SDEC patients who are explicitly benefitting from admission avoidance
+        # Note that this is using the admission avoidance MODEL attribute,
+        # which is populated entirely separately from the patient-level
+        # admission avoidance attributes and will ensure that only SDEC
+        # patients who are explicitly benefitting from admission avoidance
         # via SDEC will be counted here
         self.sdec_financial_savings = (
             len(self.admission_avoidance) * g.inpatient_bed_cost
@@ -1896,8 +1916,9 @@ class Model:
 
         - **Data Cleaning**: Automatically drops the first row (index 0) of
           `occupancy_graph_df`, which is typically used as a placeholder.
-        - **Trend Analysis**: Uses a first-order polynomial fit (`numpy.polyfit`)
-          to calculate and display a linear trend line over the occupancy data.
+        - **Trend Analysis**: Uses a first-order polynomial fit
+          (`numpy.polyfit`) to calculate and display a linear trend line over
+          the occupancy data.
         - **Extensibility**: Contains placeholder (commented-out) logic for
           an additional "Nurse Assessment Queue" graph.
         - **Dependencies**: Requires `matplotlib.pyplot` as `plt` and
@@ -1919,7 +1940,8 @@ class Model:
 
         See Also
         --------
-        Trial.run_trial : The method that may collect these figures for batch reporting.
+        Trial.run_trial : The method that may collect these figures for batch
+        reporting.
 
         Notes
         -----
@@ -2056,15 +2078,17 @@ class Model:
         --------
         track_days : The background process that logs day transitions.
 
-        generator_patient_arrivals: generates in-hours patients and sends them through the
-            assessment pathway
+        generator_patient_arrivals: generates in-hours patients and sends them
+            through the assessment pathway.
 
-        generator_patient_arrivals_ooh: generates out-of-hours patients and sends them through the
-            assessment pathway
+        generator_patient_arrivals_ooh: generates out-of-hours patients and
+            sends them through the assessment pathway.
 
-        obstruct_ctp: ensures the ctp scanner is only available for the specified times
+        obstruct_ctp: ensures the ctp scanner is only available for the
+            specified times.
 
-        obstruct_sdec: ensures the sdec is only available for the specified times
+        obstruct_sdec: ensures the sdec is only available for the specified
+            times.
 
         calculate_run_results : The method called to process data after the
             event loop finishes.
