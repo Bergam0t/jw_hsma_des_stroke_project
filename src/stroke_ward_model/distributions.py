@@ -1,5 +1,9 @@
+"""
+Initialises and manages random distributions used throughout the simulation.
+"""
+
 from stroke_ward_model.inputs import g
-from sim_tools.distributions import Gamma, Exponential, Normal, DiscreteEmpirical
+from sim_tools.distributions import Exponential, Normal, DiscreteEmpirical
 import numpy as np
 
 
@@ -27,8 +31,12 @@ def initialise_distributions(self):
     self.nurse_consult_time_dist = Exponential(
         mean=g.mean_n_consult_time, random_seed=seeds[2]
     )
-    self.ct_time_dist = Exponential(mean=g.mean_n_ct_time, random_seed=seeds[3])
-    self.sdec_time_dist = Exponential(mean=g.mean_n_sdec_time, random_seed=seeds[4])
+    self.ct_time_dist = Exponential(
+        mean=g.mean_n_ct_time, random_seed=seeds[3]
+    )
+    self.sdec_time_dist = Exponential(
+        mean=g.mean_n_sdec_time, random_seed=seeds[4]
+    )
 
     self.i_ward_time_mrs_0_dist = Exponential(
         mean=g.mean_n_i_ward_time_mrs_0, random_seed=seeds[5]
@@ -69,10 +77,10 @@ def initialise_distributions(self):
     )
 
     self.tia_ward_time_dist = Exponential(
-        mean=g.mean_n_non_stroke_ward_time, random_seed=seeds[17]
+        mean=g.mean_n_tia_ward_time, random_seed=seeds[17]
     )
     self.non_stroke_ward_time_dist = Exponential(
-        mean=g.mean_n_tia_ward_time, random_seed=seeds[18]
+        mean=g.mean_n_non_stroke_ward_time, random_seed=seeds[18]
     )
 
     # Patient Attribute Distributions

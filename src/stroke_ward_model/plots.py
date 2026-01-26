@@ -1,12 +1,37 @@
+"""
+Generates plots and visual summaries from stroke ward simulation outputs.
+"""
+
 import plotly.express as px
 
+
 class TrialPlots:
+    """
+    Create interactive visualisations from a stroke ward simulation trial.
+    """
     def __init__(self, trial_object):
+        """
+        Initialise the TrialPlots object with trial results.
+
+        Parameters
+        ----------
+        trial_object : stroke_ward_model.trial.Trial
+            Completed Trial object whose patient-level DataFrame will be used
+            for plotting.
+        """
         self.trial_object = trial_object
         self.trial_patient_df = self.trial_object.trial_patient_df
 
     def plot_los(self):
-        return px.histogram(data=self.trial_patient_df, x="sdec_los")
+        """
+        Plot a histogram of SDEC length of stay for all patients in the trial.
+
+        Returns
+        -------
+        plotly.graph_objs._figure.Figure
+            Plotly Figure object showing the distribution of `sdec_los` values.
+        """
+        return px.histogram(self.trial_patient_df, x="sdec_los")
 
 
 if __name__ == "__ main __":

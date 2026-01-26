@@ -1,3 +1,7 @@
+"""
+Defines global configuration parameters for the stroke ward simulation model.
+"""
+
 # MARK: g
 # Global class to store parameters for the model.
 class g:
@@ -23,14 +27,14 @@ class g:
         Interarrival time (minutes) for daytime patient generation.
         NOTE that this is not used in entirely the way that you might expect.
         This may be changed in future.
-        NOTE that this has now been changed to be used directly as an average IAT, but this
-        may change in future. This supersedes the previous note.
+        NOTE that this has now been changed to be used directly as an average
+        IAT, but this may change in future. This supersedes the previous note.
     patient_inter_night : int
         Interarrival time (minutes) for nighttime patient generation.
         NOTE that this is not used in entirely the way that you might expect.
         This may be changed in future.
-        NOTE that this has now been changed to be used directly as an average IAT, but this
-        may change in future. This supersedes the previous note.
+        NOTE that this has now been changed to be used directly as an average
+        IAT, but this may change in future. This supersedes the previous note.
     number_of_nurses : int
         Number of nurses available in the system.
     mean_n_consult_time : int
@@ -76,12 +80,14 @@ class g:
     thrombolysis_los_save : float
         Proportional reduction in LOS for thrombolysed patients.
         This is used as a multiplier with the sampled length of stay.
-        For example, if a patient has a LOS of 10 days, and the value of `thrombolysis_los_save`
-        was 0.75, the calculation would be 10 * 0.75, resulting in a LOS of 7.5 days.
+        For example, if a patient has a LOS of 10 days, and the value of
+        `thrombolysis_los_save` was 0.75, the calculation would be 10 * 0.75,
+        resulting in a LOS of 7.5 days.
     mean_mrs : int
         Default/mean modified Rankin Scale score used in the model.
     ich : int
-        Percentage likelihood of intracerebral hemorrhage diagnosis (TODO: CHECK INTERPRETATION).
+        Percentage likelihood of intracerebral hemorrhage diagnosis
+        (TODO: CHECK INTERPRETATION).
     i : int
         Percentage likelihood of ischemic stroke diagnosis.
     tia : int
@@ -139,9 +145,9 @@ class g:
     number_of_runs = 10
     warm_up_period = sim_duration / 5
 
-    # TODO: SR query: confirm with John in case this was done in this way for a particular
-    # reason, but I've swapped it to a more intuitive use and something that will allow
-    # for setting via the app interface too
+    # TODO: SR query: confirm with John in case this was done in this way for
+    # a particular reason, but I've swapped it to a more intuitive use and
+    # something that will allow for setting via the app interface too
     # patient_inter_day = 5
     # patient_inter_night = 5
     patient_inter_day = 200.0
@@ -182,8 +188,8 @@ class g:
 
     sdec_dr_cost_min = 0.50
     # TODO: SR: John, I assume these are costs per day?
-    # Can we explain where these values are taken from?
-    # Is it specific to a given trust? What year are these values calculated for?
+    # Can we explain where these values are taken from? Is it specific to a
+    # given trust? What year are these values calculated for?
     inpatient_bed_cost = 876
     inpatient_bed_cost_thrombolysis = 528.17
     mean_mrs = 2
