@@ -101,6 +101,13 @@ Please note all changes made to the code in the file `docs/CHANGELOG.md`.
 
 <br>
 
+## Tests
+
+The test suite can be run with the `pytest --html-output=docs/` command.
+
+This will run the tests as well as generating a rich html report, which will then also be made available in the documentation.
+
+
 ## Documentation
 
 The documentation site is provided using mkdocs-material and mkdocstrings.

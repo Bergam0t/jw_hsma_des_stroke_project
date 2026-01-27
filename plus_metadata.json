@@ -1,0 +1,8 @@
+{
+  "report_title": "",
+  "environment": "Pass --env or --environment or --rp-env <name> to populate environment",
+  "branch": "Pass --git-branch to populate git metadata",
+  "commit": "Pass --git-commit to populate git metadata",
+  "python_version": "3.12.10",
+  "generated_at": "2026-01-27T10:35:26.618267"
+}
