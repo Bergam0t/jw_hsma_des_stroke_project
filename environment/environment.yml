@@ -5,6 +5,8 @@ dependencies:
   - python=3.12.10
   - pip
   - pip:
+      - distfit==2.0.1
+      - ipykernel==7.1.0
       - numpy==1.26.4
       - pandas==2.1.1
       - simpy==4.1.1
