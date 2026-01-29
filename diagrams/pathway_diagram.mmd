@@ -1,0 +1,60 @@
+flowchart TB
+    A["In-hours admissions <br><br>Default 7am to 12 midnight"] --> n12["Patient Generated"]
+    B["Nurse Triage"] --> C(["Is the CT perfusion (CTP) scanner open?"])
+    C -- Yes --> n2["CTP Scan <br>(Advanced Scan)"]
+    C -- No --> n3["CT Scan"]
+    n2 --> n4(["Patient has Ischaemic Stroke <br><b><i>AND </i></b>MRS is 1 or above<br><br><b>AND onset time is known</b><br>OR </b>onset time unknown but it is found that onset is <br>recent enough for thrombolysis to be effective" ]) & n18(["Patient has ICH<br><b>OR </b>MRS is 0<br><br><b>OR </b>Onset time not known <br><b><i>AND</i></b> it is found that too much time has passed <br>for thrombolysis to be effective<br>"]) & n19(["Patient has a TIA, stroke mimic or no stroke<br>"])
+    n3 --> n5(["Patient has Ischaemic Stroke<br><b>AND</b> MRS is 1 or above <br><b>AND</b> onset time is known"]) & n19 & n26(["Patient has ICH<br><b>OR</b> MRS is 0<br><b>OR </b>Onset time not known<br>"])
+    n6(["Is SDEC open?"]) -- Yes --> n7(["Is a bed available in SDEC?"])
+    n7 -- Yes --> n8["Admit to SDEC"]
+    n7 -- No --> n9["Admit to Ward"]
+    n6 -- No --> n9
+    n9 -.-> n11["Discharge"]
+    n8 --> n20(["Is therapy available in SDEC?"])
+    n1["Out-of-hours admissions (less frequent)<br><br>Default 12 midnight to 7am"] --> n12
+    n12 --> B
+    n12 -.- n13["<b>Modified Rankin Scale Score on Presentation <br></b><br>0 least disabled<br>5 most disabled<br>6 (dead) not modelled"] & n14["<b>Stroke Onset Type<br></b><br>Known<br><b>OR</b> Unknown but in CTP window<br><b>OR</b> unknown and outside CTP window"]
+    n15["<b>Patient Diagnosis<br></b><br>Intracerebral Haemorrhage<br><b>OR</b> Ischaemic Strke<br><b>OR</b> Transient Ischaemic Attack<br><b>OR</b> Stroke Mimic<br><b>OR</b> Non-Stroke"] -.- n12
+    n16["Triage Priority <br><br>Not currently used"] -.- n12
+    n4 --> n17["Thrombolyse<br><br>Reduces LOS by a defined factor"]
+    n5 --> n17
+    n17 --> n6
+    n18 --> n6
+    n19 -. "Large chance </br>(~90% for TIA,</br>~70% for stroke mimic or non-stroke)</br>this kind of patient will <b>not</b> be admitted</br>to stroke ward or SDEC" .-> n11
+    n19 -- Small chance TIA, stroke mimic <br>or no stroke patient <br>will still be admitted --> n6
+    n20 -- No --> n21(["Patient has Ischaemic Stroke or ICH<br><b>AND </b>MRS is 0 or 1<b><br>AND </b>patient was not thrombolysed"])
+    n20 -- Yes --> n22(["Patient has Ischaemic Stroke or ICH<br><b>AND </b>MRS is 0, 1 or 2<br><b>AND </b>patient was not thrombolysed"])
+    n21 -- Yes --> n23["Avoided Admission"]
+    n21 -- No --> n25["Admission Not Avoided"]
+    n22 -- Yes --> n23
+    n23 -.-> n11
+    n22 -- No --> n25
+    n25 --> n9
+    n26 --> n6
+
+    style C fill:#FFF9C4
+    style n4 fill:#FFF9C4
+    style n18 fill:#FFF9C4
+    style n19 fill:#FFF9C4
+    style n5 fill:#FFF9C4
+    style n26 fill:#FFF9C4
+    style n6 fill:#FFF9C4
+    style n7 fill:#FFF9C4
+    style n11 fill:#DD4040
+    style n20 fill:#FFF9C4
+    style n13 fill:#C8E6C9
+    style n14 fill:#C8E6C9
+    style n15 fill:#C8E6C9
+    style n16 fill:#C8E6C9
+    style n17 fill:#BBDEFB
+    style n21 fill:#FFF9C4
+    style n22 fill:#FFF9C4
+    style n23 fill:#48BE5C
+    linkStyle 6 stroke:#FF6D00,fill:none
+    linkStyle 8 stroke:#FF6D00,fill:none
+    linkStyle 14 stroke:#D50000,fill:none
+    linkStyle 22 stroke:#2962FF,fill:none
+    linkStyle 23 stroke:#2962FF,fill:none
+    linkStyle 24 stroke:#2962FF,fill:none
+    linkStyle 26 stroke:#D50000,fill:none
+    linkStyle 33 stroke:#D50000,fill:none
