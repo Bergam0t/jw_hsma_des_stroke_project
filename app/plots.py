@@ -409,3 +409,111 @@ def generate_occupancy_plots(
 
         st.subheader("SDEC Occupancy Audits")
         st.dataframe(my_trial.sdec_occupancy_df)
+
+
+@st.fragment
+def plot_time_heatmap(patient_df, time_vars):
+    time_col_pretty = st.selectbox(
+        "Select a time variable to visualise", options=time_vars
+    )
+
+    time_col = time_vars[time_col_pretty]
+    df = add_sim_timestamp(patient_df, time_col=time_col, time_unit="minutes")
+
+    # 1. Extract the hour
+    df[f"{time_col}_hour"] = df["timestamp"].apply(lambda x: x.hour)
+
+    # 2. Get counts and reindex to include all hours (0-23)
+    counts_series = df[f"{time_col}_hour"].value_counts()
+
+    # This ensures 0 through 23 are all present, filling missing hours with 0
+    full_hours_range = range(24)
+    counts_by_hour = (
+        counts_series.reindex(full_hours_range, fill_value=0).sort_index().reset_index()
+    )
+    counts_by_hour.columns = [f"{time_col}_hour", "count"]
+
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=[counts_by_hour["count"].values],
+            x=counts_by_hour[f"{time_col}_hour"].values,
+            y=["All"],
+            colorscale="Blues",
+            hoverongaps=False,
+            xgap=3,
+        )
+    )
+
+    fig.update_layout(
+        title=f"{time_col_pretty} Heatmap by Hour",
+        xaxis_title="Hour of Day",
+        yaxis=dict(showticklabels=False),
+        xaxis=dict(
+            tickmode="array",
+            tickvals=list(range(24)),
+            ticktext=[f"{h}:00" for h in range(24)],  # Optional: prettier labels
+        ),
+    )
+
+    return st.plotly_chart(fig)
+
+
+@st.fragment
+def plot_histogram(
+    patient_df,
+    patient_level_metric_choices,
+    split_vars,
+):
+    patient_level_metric_selected = st.multiselect(
+        "Select a metric to view the distribution of",
+        options=list(patient_level_metric_choices.keys()),
+    )
+
+    selected_values = ["id", "run"] + [
+        patient_level_metric_choices[k]
+        for k in patient_level_metric_selected
+        if k in patient_level_metric_choices
+    ]
+
+    selected_facet_var = st.selectbox(
+        "Select a metric to facet the values by",
+        options=[None] + list(split_vars.keys()),
+    )
+
+    normalise_los_to_days = st.toggle("Change LOS from Minutes to Days?")
+
+    if selected_facet_var is not None:
+        selected_facet_value = split_vars[selected_facet_var]
+    else:
+        selected_facet_value = None
+
+    if selected_facet_var is not None:
+        df = (
+            patient_df[[selected_facet_value] + selected_values]
+            .melt(id_vars=["id", "run", selected_facet_value])
+            .copy()
+        )
+        if normalise_los_to_days:
+            df["value"] = df["value"] / 60 / 24
+        st.plotly_chart(
+            px.histogram(
+                data_frame=df,
+                x="value",
+                facet_row=selected_facet_value,
+                facet_col="variable",
+                # Scale plot with number of variables
+                height=200 * len(df[selected_facet_value].unique()),
+            )
+        )
+
+    else:
+        df = patient_df[selected_values].melt(id_vars=["id", "run"]).copy()
+        if normalise_los_to_days:
+            df["value"] = df["value"] / 60 / 24
+        st.plotly_chart(
+            px.histogram(
+                data_frame=df,
+                x="value",
+                facet_col="variable",
+            )
+        )
