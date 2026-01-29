@@ -542,42 +542,41 @@ class Model:
         of Google Gemini Flash.
         All generated content has been thoroughly reviewed.
         """
-        #  SR: Add initial offset
+        # SR: Add initial offset
         # SR: Patient generators have also been updated
         # to match with how this is working
         yield self.env.timeout(g.sdec_opening_hour * 60)
 
         while True:
             yield self.env.timeout(g.sdec_unav_freq)
-            # Once elapsed, this generator requests the SDEC with
-            # a priority of -1. As the patient priority is set at 1
-            # the SDEC will take priority over any patients waiting.
             g.sdec_unav = True
-            with self.sdec_bed.request(priority=-1) as req:
-                yield req
-                trace(
-                    time=self.env.now,
-                    debug=g.show_trace,
-                    msg=f"🏥 SDEC CLOSES at {minutes_to_ampm(int(self.env.now % 1440))}. Occupancy at closure: {len(self.sdec_occupancy)} of {g.sdec_beds} beds.",
-                    identifier=self.patient_counter,
-                    config=g.trace_config,
-                )
 
-                # Freeze with the SDEC held in place for the unavailability
-                # time, in the model this means patients admitted in this time
-                # will not have passed through the SDEC.
-                # freq and unav times are set in the g class
-                yield self.env.timeout(g.sdec_unav_time)
-                trace(
-                    time=self.env.now,
-                    debug=g.show_trace,
-                    msg=f"🏥 SDEC OPENS at {minutes_to_ampm(int(self.env.now % 1440))}. Occupancy at opening: {len(self.sdec_occupancy)} of {g.sdec_beds} beds.",
-                    identifier=self.patient_counter,
-                    config=g.trace_config,
-                )
-                g.sdec_unav = False
-                if self.env.now > g.warm_up_period:
-                    self.sdec_freeze_counter += 1
+            trace(
+                time=self.env.now,
+                debug=g.show_trace,
+                msg=f"🏥 SDEC CLOSES at {minutes_to_ampm(int(self.env.now % 1440))}. Occupancy at closure: {len(self.sdec_occupancy)} of {g.sdec_beds} beds.",
+                identifier=self.patient_counter,
+                config=g.trace_config,
+            )
+
+            # Freeze with the SDEC held in place for the unavailability
+            # time, in the model this means patients admitted in this time
+            # will not have passed through the SDEC.
+            # freq and unav times are set in the g class
+            yield self.env.timeout(g.sdec_unav_time)
+
+            trace(
+                time=self.env.now,
+                debug=g.show_trace,
+                msg=f"🏥 SDEC OPENS at {minutes_to_ampm(int(self.env.now % 1440))}. Occupancy at opening: {len(self.sdec_occupancy)} of {g.sdec_beds} beds.",
+                identifier=self.patient_counter,
+                config=g.trace_config,
+            )
+
+            g.sdec_unav = False
+
+            if self.env.now > g.warm_up_period:
+                self.sdec_freeze_counter += 1
 
     # MARK: M: Stroke assessment
     # A generator function that represents the pathway for a patient going
