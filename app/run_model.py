@@ -14,7 +14,12 @@ from stroke_ward_model.trial import Trial
 # App imports
 from app_utils import iconMetricContainer
 from convert_event_log import convert_event_log, create_vidigi_animation
-from plots import plot_dfg_per_feature, generate_occupancy_plots
+from plots import (
+    plot_dfg_per_feature,
+    generate_occupancy_plots,
+    plot_histogram,
+    plot_time_heatmap,
+)
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 
@@ -62,6 +67,23 @@ split_vars = {
     "Admission Avoidance": "admission_avoidance",
     "Arrived OOH": "arrived_ooh",
     "Patient Diagnosis Type": "patient_diagnosis_type",
+}
+
+time_vars = {
+    "Clock Start": "clock_start",
+    "Nurse Queue Start": "nurse_q_start_time",
+    "Nurse Triage Start": "nurse_triage_start_time",
+    "Nurse Triage End": "nurse_triage_end_time",
+    "CT Scan Start": "ct_scan_start_time",
+    "CT Scan End": "ct_scan_end_time",
+    "CTP Scan Start": "ctp_scan_start_time",
+    "CTP Scan End": "ctp_scan_end_time",
+    "SDEC Admit Time": "sdec_admit_time",
+    "SDEC Discharge Time": "sdec_discharge_time",
+    "Ward Queue Start": "ward_q_start_time",
+    "Ward Admit Time": "ward_admit_time",
+    "Ward Discharge Time": "ward_discharge_time",
+    "Model Exit Time": "exit_time",
 }
 
 #########################
@@ -994,70 +1016,16 @@ being full.
             ####################################
             # MARK: Flexible Plot of Variables #
             ####################################
-            @st.fragment
-            def plot_histogram(
+            plot_histogram(
+                patient_df=patient_df,
                 patient_level_metric_choices=patient_level_metric_choices,
                 split_vars=split_vars,
-            ):
-                patient_level_metric_selected = st.multiselect(
-                    "Select a metric to view the distribution of",
-                    options=list(patient_level_metric_choices.keys()),
-                )
+            )
 
-                selected_values = ["id", "run"] + [
-                    patient_level_metric_choices[k]
-                    for k in patient_level_metric_selected
-                    if k in patient_level_metric_choices
-                ]
-
-                selected_facet_var = st.selectbox(
-                    "Select a metric to facet the values by",
-                    options=[None] + list(split_vars.keys()),
-                )
-
-                normalise_los_to_days = st.toggle(
-                    "Change LOS from Minutes to Days?"
-                )
-
-                if selected_facet_var is not None:
-                    selected_facet_value = split_vars[selected_facet_var]
-                else:
-                    selected_facet_value = None
-
-                if selected_facet_var is not None:
-                    df = (
-                        patient_df[[selected_facet_value] + selected_values]
-                        .melt(id_vars=["id", "run", selected_facet_value])
-                        .copy()
-                    )
-                    if normalise_los_to_days:
-                        df["value"] = df["value"] / 60 / 24
-                    st.plotly_chart(
-                        px.histogram(
-                            data_frame=df,
-                            x="value",
-                            facet_row=selected_facet_value,
-                            facet_col="variable",
-                            # Scale plot with number of variables
-                            height=200*len(df[selected_facet_value].unique()),
-                        )
-                    )
-
-                else:
-                    df = patient_df[selected_values].melt(
-                        id_vars=["id", "run"]
-                    ).copy()
-                    if normalise_los_to_days:
-                        df["value"] = df["value"] / 60 / 24
-                    st.plotly_chart(
-                        px.histogram(
-                            data_frame=df,
-                            x="value",
-                            facet_col="variable",
-                        )
-                    )
-
-            plot_histogram()
+            ####################################
+            # MARK: Heatmap                    #
+            ####################################
+            plot_time_heatmap(patient_df=patient_df, time_vars=time_vars)
 
         #########################
         # MARK: Animation       #

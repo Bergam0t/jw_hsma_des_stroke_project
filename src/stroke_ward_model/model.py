@@ -285,6 +285,20 @@ class Model:
                 g.patient_arrival_gen_1 = True
                 g.patient_arrival_gen_2 = False
 
+                sampled_inter = self.patient_inter_day_dist.sample()
+
+                trace(
+                    time=self.env.now,
+                    debug=g.show_trace,
+                    msg=f"⏲️ Next patient arriving in {sampled_inter:.1f} minutes",
+                    config=g.trace_config,
+                    identifier=self.patient_counter,
+                )
+
+                # Freeze this instance of this function in place until the
+                # inter-arrival time has elapsed.
+                yield self.env.timeout(sampled_inter)
+
                 # Increment the patient counter by 1 for each new patient
                 self.patient_counter += 1
 
@@ -326,19 +340,6 @@ class Model:
                 # sampled_inter = random.expovariate(0.025 / 5)
                 # sampled_inter = random.expovariate(1.0 / g.patient_inter_day)
                 # ----- END ORIGINAL -------- #
-                sampled_inter = self.patient_inter_day_dist.sample()
-
-                trace(
-                    time=self.env.now,
-                    debug=g.show_trace,
-                    msg=f"⏲️ Next patient arriving in {sampled_inter:.1f} minutes",
-                    config=g.trace_config,
-                    identifier=p.id,
-                )
-
-                # Freeze this instance of this function in place until the
-                # inter-arrival time has elapsed.
-                yield self.env.timeout(sampled_inter)
 
             else:
                 yield self.env.timeout(1)
@@ -395,6 +396,20 @@ class Model:
                 g.patient_arrival_gen_1 = False
                 g.patient_arrival_gen_2 = True
 
+                sampled_inter = self.patient_inter_night_dist.sample()
+
+                trace(
+                    time=self.env.now,
+                    debug=g.show_trace,
+                    msg=f"⏲️ Next OOH patient arriving in {sampled_inter:.1f} minutes",
+                    identifier=self.patient_counter,
+                    config=g.trace_config,
+                )
+
+                # Freeze this instance of this function in place until the
+                # inter-arrival time has elapsed.
+                yield self.env.timeout(sampled_inter)
+
                 # Increment the patient counter by 1 for each new patient
                 self.patient_counter += 1
 
@@ -434,20 +449,6 @@ class Model:
                 # sampled_inter = random.expovariate(0.0075 / 5)
                 # sampled_inter = random.expovariate(1.0 / g.patient_inter_night)
                 # ----- END ORIGINAL -------- #
-                sampled_inter = self.patient_inter_night_dist.sample()
-
-                trace(
-                    time=self.env.now,
-                    debug=g.show_trace,
-                    msg=f"⏲️ Next OOH patient arriving in {sampled_inter:.1f} minutes",
-                    identifier=p.id,
-                    config=g.trace_config,
-                )
-
-                # Freeze this instance of this function in place until the
-                # inter-arrival time has elapsed.
-                yield self.env.timeout(sampled_inter)
-
             else:
                 yield self.env.timeout(1)
 
