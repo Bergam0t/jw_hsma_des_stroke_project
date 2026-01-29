@@ -225,6 +225,16 @@ class g:
     in_hours_start = 7
     ooh_start = 0
 
+    # Setting of relative frequencies of onsets
+
+    in_hours_known_onset = 1.0 / 3.0
+    in_hours_unknown_onset_inside_ctp = 1.0 / 3.0
+    in_hours_unknown_onset_outside_ctp = 1.0 / 3.0
+
+    out_of_hours_known_onset = 1.0 / 3.0
+    out_of_hours_unknown_onset_inside_ctp = 1.0 / 3.0
+    out_of_hours_unknown_onset_outside_ctp = 1.0 / 3.0
+
     # These values are changed by the model itself
 
     sdec_unav = False

@@ -292,6 +292,7 @@ class Model:
                 # defined above. patient counter ID passed from above to patient
                 # class.
                 p = Patient(self.patient_counter)
+                p.onset_type = self.onset_type_distribution_in_hours.sample()
                 self.patient_objects.append(p)
 
                 trace(
@@ -401,6 +402,7 @@ class Model:
                 # defined above. patient counter ID passed from above to patient
                 # class.
                 p = Patient(self.patient_counter)
+                p.onset_type = self.onset_type_distribution_out_of_hours.sample()
                 self.patient_objects.append(p)
 
                 trace(
@@ -593,8 +595,6 @@ class Model:
         """
 
         # Populate various patient attributes
-        # patient.onset_type = random.randint(0, 2)
-        patient.onset_type = self.onset_type_distribution.sample()
         # patient.mrs_type = min(round(random.expovariate(1.0 / g.mean_mrs)), 5)
         patient.mrs_type = min(round(self.mrs_type_distribution.sample()), 5)
         # patient.diagnosis = random.randint(0, 100)

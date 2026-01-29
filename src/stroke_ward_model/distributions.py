@@ -84,10 +84,24 @@ def initialise_distributions(self):
     )
 
     # Patient Attribute Distributions
-    self.onset_type_distribution = DiscreteEmpirical(
+    self.onset_type_distribution_in_hours = DiscreteEmpirical(
         values=[0, 1, 2],
-        freq=[1, 1, 1],  # equal weight of all possibilities
+        freq=[
+            g.in_hours_known_onset,
+            g.in_hours_unknown_onset_inside_ctp,
+            g.in_hours_unknown_onset_outside_ctp,
+        ],  # equal weight of all possibilities
         random_seed=seeds[19],
+    )
+
+    self.onset_type_distribution_out_of_hours = DiscreteEmpirical(
+        values=[0, 1, 2],
+        freq=[
+            g.out_of_hours_known_onset,
+            g.out_of_hours_unknown_onset_inside_ctp,
+            g.out_of_hours_unknown_onset_outside_ctp,
+        ],  # equal weight of all possibilities
+        random_seed=seeds[32],
     )
 
     self.mrs_type_distribution = Exponential(g.mean_mrs, random_seed=seeds[20])
