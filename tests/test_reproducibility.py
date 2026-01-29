@@ -1,5 +1,8 @@
+"""
+Check that seeds are working as expected
+"""
+
 import pandas as pd
-from pathlib import Path
 from stroke_ward_model.inputs import g
 from stroke_ward_model.trial import Trial
 
@@ -15,38 +18,37 @@ def assert_frame_not_equal(*args, **kwargs):
         raise AssertionError
 
 
-g.show_trace = False
+def _configure_for_trial():
+    g.show_trace = False
 
-g.sdec_value = 33.3
-g.sdec_unav_freq = 1440 * (g.sdec_value / 100)
-g.sdec_unav_time = 1440 - g.sdec_unav_freq
+    g.sdec_value = 33.3
+    g.sdec_unav_freq = 1440 * (g.sdec_value / 100)
+    g.sdec_unav_time = 1440 - g.sdec_unav_freq
 
-g.ctp_value = 33.3
-g.ctp_unav_freq = 1440 * (g.ctp_value / 100)
-g.ctp_unav_time = 1440 - g.ctp_unav_freq
+    g.ctp_value = 33.3
+    g.ctp_unav_freq = 1440 * (g.ctp_value / 100)
+    g.ctp_unav_time = 1440 - g.ctp_unav_freq
 
-g.sdec_opening_hour = 7
-g.ctp_opening_hour = 7
+    g.sdec_opening_hour = 7
+    g.ctp_opening_hour = 7
 
-
-def test_reproduction():
     g.number_of_runs = 2
     g.sim_duration = 24 * 60 * 90
     g.master_seed = 5
 
+
+def test_reproduction():
+    _configure_for_trial()
+
     my_trial = Trial()
-
-    # Call the run_trial method of our Trial object
     my_trial.run_trial()
-
     df_trial_results_1 = my_trial.df_trial_results
     df_patient_log_1 = my_trial.trial_patient_df
 
+    _configure_for_trial()
+
     my_trial = Trial()
-
-    # Call the run_trial method of our Trial object
     my_trial.run_trial()
-
     df_trial_results_2 = my_trial.df_trial_results
     df_patient_log_2 = my_trial.trial_patient_df
 
@@ -64,25 +66,20 @@ def test_reproduction():
 
 
 def test_different_seed_different_results():
-    g.number_of_runs = 2
-    g.sim_duration = 24 * 60 * 90
-    g.master_seed = 5
+    _configure_for_trial()
 
     my_trial = Trial()
-
-    # Call the run_trial method of our Trial object
     my_trial.run_trial()
-
     df_trial_results_1 = my_trial.df_trial_results
     df_patient_log_1 = my_trial.trial_patient_df
 
+    _configure_for_trial()
+
+    # Change seed
     g.master_seed = 134
 
     my_trial = Trial()
-
-    # Call the run_trial method of our Trial object
     my_trial.run_trial()
-
     df_trial_results_2 = my_trial.df_trial_results
     df_patient_log_2 = my_trial.trial_patient_df
 
