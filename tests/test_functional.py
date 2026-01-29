@@ -5,6 +5,7 @@ Functional tests
 import pytest
 from stroke_ward_model.inputs import g
 from stroke_ward_model.model import Model
+from stroke_ward_model.trial import Trial
 
 
 def run_single_model_with_config(config_overrides=None):
@@ -108,3 +109,46 @@ def test_arrivals_increase(baseline_arrivals, overrides):
     """Ensure more arrivals when higher arrival rate or longer simulation."""
     arrivals = run_single_model_with_config(config_overrides=overrides)
     assert arrivals > baseline_arrivals
+
+
+def test_ctp_24_7_no_ct_scans():
+    """When CTP is available 24/7, there should be no CT scans."""
+    # Master seed where bug was observed
+    g.master_seed = 42
+
+    g.sim_duration = 1440 * 7  # 1 week
+    g.warm_up_period = 0  # No warm-up to capture all early patients
+    g.number_of_runs = 1  # Single run is sufficient to identify the bug
+
+    # Configure CTP to be available 24/7
+    g.ctp_opening_hour = 9
+    g.ctp_unav_freq = 1440
+    g.ctp_unav_time = 0
+    g.ctp_value = 100
+
+    # Configure SDEC to be available 24/7
+    g.sdec_opening_hour = 8
+    g.sdec_unav_freq = 1440
+    g.sdec_unav_time = 0
+    g.sdec_value = 100
+
+    # Disable CSV writing and graph generation for test
+    g.write_to_csv = False
+    g.gen_graph = False
+    g.show_trace = False
+
+    trial = Trial()
+    trial.run_trial()
+    patient_df = trial.trial_patient_df
+
+    # Filter to patients who completed their journey
+    completed_patients = patient_df[patient_df['journey_completed'] == True].copy()
+
+    # Identify patients who received CT instead of CTP
+    received_ct = completed_patients[
+        (completed_patients['advanced_ct_pathway'] == False) &
+        (completed_patients['ct_duration'].notna()) &
+        (completed_patients['ctp_duration'].isna())
+    ]
+
+    assert len(received_ct) == 0
