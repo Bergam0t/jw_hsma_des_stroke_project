@@ -80,12 +80,22 @@ with st.sidebar:
     )
     g.sdec_beds = number_of_sdec_beds
 
+    st.caption(
+        f"Total number of beds available: {number_of_ward_beds + number_of_sdec_beds}"
+    )
+
     therapy_sdec = st.toggle(
         "Toggle whether the SDEC will run with full therapy support",
         help="""
-Off = no therapy support. If therapy support enabled, patients with a higher
+Off = no therapy support.
+
+If therapy support enabled, patients with a higher
  level of disability will be eligible for admission avoidance via SDEC (maximum
  MRS of 3 rather than 2 without therapy).
+
+ Therapy incurs no cost in the model as
+ the number of patients seen does not change - the point in their journey and
+ location of where they are seen is the only thing changing.
         """,
     )
     g.therapy_sdec = therapy_sdec
