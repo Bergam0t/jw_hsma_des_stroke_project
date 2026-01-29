@@ -134,3 +134,20 @@ def test_arrivals_invariant_to_other_params(baseline_arrivals, overrides):
     """Check arrivals remains consistent when other parameters are changed."""
     arrivals = run_single_model_with_config(config_overrides=overrides)
     assert arrivals == baseline_arrivals
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        # Longer run duration -> more arrivals
+        {"sim_duration": 20000},
+
+        # Higher arrival rate (smaller mean IAT) -> more arrivals
+        {"patient_inter_day": 100.0},
+        {"patient_inter_night": 333.333333333333},
+    ],
+)
+def test_arrivals_increase(baseline_arrivals, overrides):
+    """Ensure more arrivals when higher arrival rate or longer simulation."""
+    arrivals = run_single_model_with_config(config_overrides=overrides)
+    assert arrivals > baseline_arrivals
