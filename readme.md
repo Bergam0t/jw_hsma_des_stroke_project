@@ -95,6 +95,31 @@ streamlit run app/streamlit_app.py
 
 <br>
 
+## Parametrisation and preprocessing
+
+If you want to re-parametrise the model using your own local data, use the notebook:
+
+```
+preprocessing/preprocessing.ipynb
+```
+
+This notebook reads in CSV files and suggests distributions and parameters for:
+
+* Inter-arrival times (separate in-hours and out-of-hours).
+* MRS score on presentation.
+* Length of stay (by modified rankin score (MRS) on presentation and stroke type).
+
+When you run it, it writes out CSV files in the `preprocessing/` folder that you can use to update `src/stroke_ward_model/inputs.py` and `src/stroke_ward_model/distributions.py`.
+
+The notebook expects CSV files in `input_data/` with the following columns:
+
+* `los.csv`: `diagnosis`, `mrs`, `los` (days).
+* `iat.csv`: `in-hours`, `out-of-hours` (minutes between arrivals).
+
+The `los.csv` and `iat.csv` included in this repository are dummy examples for structure only - they are not real data and should be replaced with your own before using results for decision-making.
+
+<br>
+
 ## Changelog
 
 Please note all changes made to the code in the file `docs/CHANGELOG.md`.
@@ -107,6 +132,7 @@ The test suite can be run with the `pytest --html-output=docs/` command.
 
 This will run the tests as well as generating a rich html report, which will then also be made available in the documentation.
 
+<br>
 
 ## Documentation
 
