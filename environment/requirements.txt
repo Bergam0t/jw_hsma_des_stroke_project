@@ -1,3 +1,4 @@
+distfit==2.0.1
 ipykernel==7.1.0
 numpy==1.26.4
 pandas==2.1.1
