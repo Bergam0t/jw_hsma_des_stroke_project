@@ -433,6 +433,8 @@ class Model:
 
                 if self.env.now < g.warm_up_period:
                     p.generated_during_warm_up = True
+                else:
+                    p.generated_during_warm_up = False
 
                 # Tell SimPy to start the stroke assessment function with
                 # this patient (the generator function that will model the
