@@ -578,21 +578,17 @@ class Model:
             if self.env.now > g.warm_up_period:
                 self.sdec_freeze_counter += 1
 
-    # MARK: M: Stroke assessment
-    # A generator function that represents the pathway for a patient going
-    # through the stroke assessment process.
-    # The patient object is passed in to the generator function so we can
-    # extract information from / record information to it
-    def stroke_assessment(self, patient):
+    def set_patient_attributes(self, patient):
         """
-        Simulates the full assessment and treatment pathway for patients
-        in a stroke pathway.
+        Sets a series of randomised per-patient attributes
 
         Parameters
         ----------
         patient : Instance of class `Patient`
             One single unique patient object.
         """
+        # For now, no-one gets thrombectomy
+        patient.thrombectomy = False
 
         # Populate various patient attributes
         # patient.mrs_type = min(round(random.expovariate(1.0 / g.mean_mrs)), 5)
@@ -601,6 +597,13 @@ class Model:
         patient.diagnosis = self.diagnosis_distribution.sample()
         # patient.non_admission = random.randint(0, 100)
         patient.non_admission = self.non_admission_distribution.sample()
+
+        # Define threshold for admission for TIA + stroke mimic patients
+        self.tia_admission_chance = self.tia_admission_chance_distribution.sample()
+
+        self.stroke_mimic_admission_chance = (
+            self.stroke_mimic_admission_chance_distribution.sample()
+        )
 
         # This code introduces a slight element of randomness into the patient's
         # diagnosis.
@@ -662,6 +665,23 @@ class Model:
             # This code adds the Patient's MRS to the DF, this can be used to
             # check all code that interacts with this runs correctly.
             self.results_df.at[patient.id, "MRS Type"] = patient.mrs_type
+
+    # MARK: M: Stroke assessment
+    # A generator function that represents the pathway for a patient going
+    # through the stroke assessment process.
+    # The patient object is passed in to the generator function so we can
+    # extract information from / record information to it
+    def stroke_assessment(self, patient):
+        """
+        Simulates the full assessment and treatment pathway for patients
+        in a stroke pathway.
+
+        Parameters
+        ----------
+        patient : Instance of class `Patient`
+            One single unique patient object.
+        """
+        self.set_patient_attributes(patient)
 
         trace(
             time=self.env.now,
