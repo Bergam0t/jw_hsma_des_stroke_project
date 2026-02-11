@@ -138,6 +138,22 @@ class Patient:
     All generated content has been thoroughly reviewed.
     """
 
+    _required_fields = [
+        "arrived_ooh",
+        "advanced_ct_pathway",
+        "sdec_pathway",
+        "thrombolysis",
+        "thrombectomy",
+        "admission_avoidance",
+        "non_admitted_tia_ns_sm",
+        "sdec_running_when_required",
+        "sdec_full_when_required",
+        "generated_during_warm_up",
+        # Numeric fields
+        "clock_start",
+        "exit_time",
+    ]
+
     def __init__(self, p_id):
         self.id = p_id
 
@@ -222,4 +238,32 @@ class Patient:
 
         # Flag for optionally removing incomplete journeys or processing them
         # in a different way in results
+        # Note that unlike other booleans defined in the patient object,
+        # we have defaulted this to False intentionally
         self.journey_completed = False
+
+    def _is_unset(self, value):
+        if value is None:
+            return True
+        try:
+            return np.isnan(value)
+        except TypeError:
+            return False
+
+    def validate(self):
+        missing = [
+            field
+            for field in self._required_fields
+            if self._is_unset(getattr(self, field))
+        ]
+
+        if missing:
+            raise ValueError(
+                f"Patient validation failed.\n"
+                f"Missing fields: {missing}\n\n"
+                f"Full object state:\n{self}"
+            )
+
+    def __repr__(self):
+        attrs = vars(self)
+        return "\n".join(f"{k}: {v}" for k, v in attrs.items())

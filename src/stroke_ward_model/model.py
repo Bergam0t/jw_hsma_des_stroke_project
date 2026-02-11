@@ -2130,6 +2130,13 @@ class Model:
         # Run the model for the duration specified in g class
         self.env.run(until=(g.sim_duration + g.warm_up_period))
 
+        # Check that all patient objects generated are valid
+        # This can highlight errors with patients who don't get all of their attributes set,
+        # which can indicate issues with logic branches
+        # Only check for patients with a completed journey as those with incomplete journeys
+        # may simply have not reached the point in the model where the relevant attribute was set
+        [p.validate() for p in self.patient_objects if p.journey_completed]
+
         # Now the simulation run has finished, call the method that calculates
         # run results
         self.calculate_run_results()
