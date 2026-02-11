@@ -81,7 +81,7 @@ class Model:
     occupancy_graph_df : pd.DataFrame
         Time-series data for monitoring ward occupancy levels.
     patient_objects : list
-        A collection of all `Patient` class instances created during the 
+        A collection of all `Patient` class instances created during the
         simulation.
 
     Notes
@@ -278,7 +278,6 @@ class Model:
         All generated content has been thoroughly reviewed.
         """
         while True:
-            # if 0 <= self.env.now % 1440 < 960
             time_of_day = self.env.now % 1440
             if self.is_in_hours(time_of_day):
                 # Change the Global Class variable for the generator to TRUE
@@ -318,6 +317,7 @@ class Model:
                 )
 
                 p.arrived_ooh = False
+
                 if self.env.now < g.warm_up_period:
                     p.generated_during_warm_up = True
                 else:
@@ -389,7 +389,6 @@ class Model:
 
         """
         while True:
-            # if 960 <= self.env.now % 1440 < 1440:
             time_of_day = self.env.now % 1440
             if self.is_out_of_hours(time_of_day):
                 # Change the Global Class variable for the generator to TRUE
@@ -417,7 +416,9 @@ class Model:
                 # defined above. patient counter ID passed from above to patient
                 # class.
                 p = Patient(self.patient_counter)
+
                 p.onset_type = self.onset_type_distribution_out_of_hours.sample()
+
                 self.patient_objects.append(p)
 
                 trace(
@@ -429,6 +430,7 @@ class Model:
                 )
 
                 p.arrived_ooh = True
+
                 if self.env.now < g.warm_up_period:
                     p.generated_during_warm_up = True
 
@@ -715,9 +717,12 @@ class Model:
                 g.patient_arrival_gen_2
             )
 
+        #######################################################################
+        # MARK: Nurse triage
         # This code says request a nurse resource, and do all of the following
         # block of code with that nurse resource held in place (and therefore
         # not usable by another patient)
+        ########################################################################
         with self.nurse.request() as req:
             # Freeze the function until the request for a nurse can be met.
             # The patient is currently queuing.
@@ -1044,9 +1049,11 @@ class Model:
 
                 patient.sdec_pathway = True
 
+                ###########################################################
+                # ADMISSION AVOIDANCE
                 # This code checks if the patient is eligible for admission
                 # avoidance depending on if therapy support is enabled.
-
+                ###########################################################
                 if g.therapy_sdec == False:
                     if (
                         patient.patient_diagnosis < 2
@@ -1071,6 +1078,7 @@ class Model:
 
                 # Add patient SDEC LOS to their patient object
                 patient.sdec_los = sampled_sdec_stay_time
+
                 # Freeze this function in place for the activity time we sampled
                 # above.
                 trace(
@@ -1080,6 +1088,7 @@ class Model:
                     identifier=patient.id,
                     config=g.trace_config,
                 )
+
                 yield self.env.timeout(sampled_sdec_stay_time)
 
                 # This code checks if the ward is full, if this is the case the
@@ -1110,9 +1119,9 @@ class Model:
                     config=g.trace_config,
                 )
 
-            ################################
-            # MARK: Admission Avoidance
-            ################################
+            ##########################################
+            # MARK: Admission Avoidance cost savings
+            ##########################################
             # This code add information regarding the patients admission avoidance.
 
             if patient.admission_avoidance == True and patient.patient_diagnosis < 2:
@@ -1192,11 +1201,13 @@ class Model:
         else:
             patient.sdec_pathway = False
 
+        #####################################################################
         # MARK: Ward Admission
         # once all the above code has been run all patients who will not admit
         # have a True admission avoidance attribute. For all the patients that
         # remain false, the below code will run simulating the admission to the
         # ward.
+        ############################################################################
 
         # TODO: sampled ward activity time is done after a bed is obtained.
         # TODO: this is what is recorded as LOS within the model, but arguably
@@ -1839,7 +1850,7 @@ class Model:
         mean_ward_occupancy : float
             The average number of beds occupied during the run.
         admission_delays : int
-            Total number of patients who experienced any wait time for a ward 
+            Total number of patients who experienced any wait time for a ward
             bed.
         mean_los_ward : float
             Average inpatient length of stay in hours.
