@@ -278,35 +278,41 @@ class Model:
         All generated content has been thoroughly reviewed.
         """
         while True:
+            sampled_inter = self.patient_inter_dist.sample(simulation_time=self.env.now)
+
+            # Freeze this instance of this function in place until the
+            # inter-arrival time has elapsed.
+            yield self.env.timeout(sampled_inter)
+
+            trace(
+                time=self.env.now,
+                debug=g.show_trace,
+                msg=f"⏲️ Next patient arriving in {sampled_inter:.1f} minutes",
+                identifier=self.patient_counter,
+                config=g.trace_config,
+            )
+
+            # Increment the patient counter by 1 for each new patient
+            self.patient_counter += 1
+
+            # Create a new patient - an instance of the Patient Class we
+            # defined above. patient counter ID passed from above to patient
+            # class.
+            p = Patient(self.patient_counter)
+            self.patient_objects.append(p)
+            if self.env.now < g.warm_up_period:
+                p.generated_during_warm_up = True
+            else:
+                p.generated_during_warm_up = False
+
             time_of_day = self.env.now % 1440
+
             if self.is_in_hours(time_of_day):
-                # Change the Global Class variable for the generator to TRUE
+                # Change the Global Class variable
                 g.patient_arrival_gen_1 = True
                 g.patient_arrival_gen_2 = False
 
-                sampled_inter = self.patient_inter_day_dist.sample()
-
-                trace(
-                    time=self.env.now,
-                    debug=g.show_trace,
-                    msg=f"⏲️ Next patient arriving in {sampled_inter:.1f} minutes",
-                    config=g.trace_config,
-                    identifier=self.patient_counter,
-                )
-
-                # Freeze this instance of this function in place until the
-                # inter-arrival time has elapsed.
-                yield self.env.timeout(sampled_inter)
-
-                # Increment the patient counter by 1 for each new patient
-                self.patient_counter += 1
-
-                # Create a new patient - an instance of the Patient Class we
-                # defined above. patient counter ID passed from above to patient
-                # class.
-                p = Patient(self.patient_counter)
                 p.onset_type = self.onset_type_distribution_in_hours.sample()
-                self.patient_objects.append(p)
 
                 trace(
                     time=self.env.now,
@@ -318,108 +324,12 @@ class Model:
 
                 p.arrived_ooh = False
 
-                if self.env.now < g.warm_up_period:
-                    p.generated_during_warm_up = True
-                else:
-                    p.generated_during_warm_up = False
-
-                # Tell SimPy to start the stroke assessment function with
-                # this patient (the generator function that will model the
-                # patient's journey through the system)
-                self.env.process(self.stroke_assessment(p))
-
-                # TODO: SR query: explore whether this is the most
-                # intuitive/easily managed way to handle interarrival rate.
-                # I think this means arrivals average every 200 minutes.
-                # TODO: SR query: confirm with John in case this was done in
-                # this way for a particular reason, but I've swapped it to a
-                # more intuitive use and something that will allow
-                # for setting via the app interface too
-                # Original code below for comparison:
-                # ----- ORIGINAL -------- #
-                # sampled_inter = random.expovariate(0.025 / 5)
-                # sampled_inter = random.expovariate(1.0 / g.patient_inter_day)
-                # ----- END ORIGINAL -------- #
-
-            else:
-                yield self.env.timeout(1)
-
-    # MARK: M: OOH arrivals
-    # A generator function for the patient arrivals out of hours.
-    def generator_patient_arrivals_ooh(self):
-        """
-        A SimPy process generator that handles out-of-hours (OOH) patient arrivals.
-
-        This function runs as a continuous loop, monitoring the simulation time
-        to identify the "night" window (960 to 1440 minutes in a 24-hour cycle).
-        When active, it instantiates patients and schedules their journey
-        through the clinical pathway.
-
-        If out-of-hours, it:
-
-        1. Updates global arrival flags.
-
-        2. Instantiates a new Patient object.
-
-        3. Records trace information.
-
-        4. Triggers the `stroke_assessment` process for the patient.
-
-        5. Samples an inter-arrival time and yields a timeout.
-
-        If in-hours, it yields a small timeout before checking again.
-
-        Arrival rates are determined by `random.expovariate` using the
-        `g.patient_inter_night` parameter. NOTE that this does not use the
-        `g.patient_inter_night` parameter directly, and instead uses it
-        alongside a rate modifier - careful inspection of the code to
-        understand the impacts of changing `g.patient_inter_night` is
-        recommended, and this may be adjusted in a future version of the model.
-
-        Patients generated here have their `arrived_ooh` attribute set to True.
-
-        This process triggers the `stroke_assessment` process for every
-        newly created patient.
-
-        Notes
-        -----
-        GENAI declaration (SR): this docstring has been generated with the aid
-        of Google Gemini Flash.
-        All generated content has been thoroughly reviewed.
-
-        """
-        while True:
-            time_of_day = self.env.now % 1440
-            if self.is_out_of_hours(time_of_day):
-                # Change the Global Class variable for the generator to TRUE
+            elif self.is_out_of_hours(time_of_day):
+                # Change the Global Class variable
                 g.patient_arrival_gen_1 = False
                 g.patient_arrival_gen_2 = True
 
-                sampled_inter = self.patient_inter_night_dist.sample()
-
-                trace(
-                    time=self.env.now,
-                    debug=g.show_trace,
-                    msg=f"⏲️ Next OOH patient arriving in {sampled_inter:.1f} minutes",
-                    identifier=self.patient_counter,
-                    config=g.trace_config,
-                )
-
-                # Freeze this instance of this function in place until the
-                # inter-arrival time has elapsed.
-                yield self.env.timeout(sampled_inter)
-
-                # Increment the patient counter by 1 for each new patient
-                self.patient_counter += 1
-
-                # Create a new patient - an instance of the Patient Class we
-                # defined above. patient counter ID passed from above to patient
-                # class.
-                p = Patient(self.patient_counter)
-
                 p.onset_type = self.onset_type_distribution_out_of_hours.sample()
-
-                self.patient_objects.append(p)
 
                 trace(
                     time=self.env.now,
@@ -431,30 +341,10 @@ class Model:
 
                 p.arrived_ooh = True
 
-                if self.env.now < g.warm_up_period:
-                    p.generated_during_warm_up = True
-                else:
-                    p.generated_during_warm_up = False
-
-                # Tell SimPy to start the stroke assessment function with
-                # this patient (the generator function that will model the
-                # patient's journey through the system)
-                self.env.process(self.stroke_assessment(p))
-
-                # TODO: SR query: explore whether this is the most
-                # intuitive/easily managed way to handle interarrival rate.
-                # I think this means arrivals average every 666.6 minutes.
-                # TODO: SR query: confirm with John in case this was done in
-                # this way for a particular reason, but I've swapped it to a
-                # more intuitive use and something that will allow
-                # for setting via the app interface too
-                # Original code below for comparison:
-                # ----- ORIGINAL -------- #
-                # sampled_inter = random.expovariate(0.0075 / 5)
-                # sampled_inter = random.expovariate(1.0 / g.patient_inter_night)
-                # ----- END ORIGINAL -------- #
-            else:
-                yield self.env.timeout(1)
+            # Tell SimPy to start the stroke assessment function with
+            # this patient (the generator function that will model the
+            # patient's journey through the system)
+            self.env.process(self.stroke_assessment(p))
 
     # MARK: M: Obstruct CTP
     def obstruct_ctp(self):
@@ -2102,9 +1992,6 @@ class Model:
         generator_patient_arrivals: generates in-hours patients and sends them
             through the assessment pathway.
 
-        generator_patient_arrivals_ooh: generates out-of-hours patients and
-            sends them through the assessment pathway.
-
         obstruct_ctp: ensures the ctp scanner is only available for the
             specified times.
 
@@ -2124,7 +2011,6 @@ class Model:
 
         self.env.process(self.track_days())
         self.env.process(self.generator_patient_arrivals())
-        self.env.process(self.generator_patient_arrivals_ooh())
         self.env.process(self.obstruct_ctp())
         self.env.process(self.obstruct_sdec())
 
