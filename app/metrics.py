@@ -34,12 +34,26 @@ year{"" if self.sim_duration_days // 365 == 1 else "s"} and
 
         # Patients per run
         self.average_patients_per_run = self.patient_df.groupby("run").size().mean()
+        self.min_patients_per_run = self.patient_df.groupby("run").size().min()
+        self.max_patients_per_run = self.patient_df.groupby("run").size().max()
 
-        self.average_patients_per_year = (
-            self.average_patients_per_run / (g.sim_duration / 60 / 24)
-        ) * 365
+        self.average_patients_per_year = self.scale_to_year(
+            self.average_patients_per_run
+        )
 
         self.average_patients_per_day = self.average_patients_per_year / 365
+
+        self.in_hours_arrivals = (
+            self.patient_df[self.patient_df["arrived_ooh"] == False]
+            .groupby("run")
+            .size()
+        )
+
+        self.ooh_arrivals = (
+            self.patient_df[self.patient_df["arrived_ooh"] == True]
+            .groupby("run")
+            .size()
+        )
 
         # Trial-level results
 
@@ -63,10 +77,30 @@ year{"" if self.sim_duration_days // 365 == 1 else "s"} and
             / self.sim_duration_years
         ).mean()
 
+        self.avoid_yearly_min = (
+            self.df_trial_results["Number of Admissions Avoided In Run"]
+            / self.sim_duration_years
+        ).min()
+
+        self.avoid_yearly_max = (
+            self.df_trial_results["Number of Admissions Avoided In Run"]
+            / self.sim_duration_years
+        ).max()
+
         self.admit_delay_yearly = (
             self.df_trial_results["Number of Admission Delays"]
             / self.sim_duration_years
         ).mean()
+
+        self.admit_delay_yearly_min = (
+            self.df_trial_results["Number of Admission Delays"]
+            / self.sim_duration_years
+        ).min()
+
+        self.admit_delay_yearly_max = (
+            self.df_trial_results["Number of Admission Delays"]
+            / self.sim_duration_years
+        ).max()
 
         self.mean_ward_occ = self.df_trial_results["Mean Occupancy"].mean()
 
@@ -118,6 +152,15 @@ year{"" if self.sim_duration_days // 365 == 1 else "s"} and
             self.diagnosis_by_stroke_type_count_per_year.copy()
         )
 
+        self.diagnosis_by_stroke_type_count = (
+            self.diagnosis_by_stroke_type_count.rename(
+                columns={
+                    "patient_diagnosis_type": "Diagnosis",
+                    "mean_patients_per_run": "Count",
+                }
+            )
+        )
+
         self.diagnosis_by_stroke_type_count_per_year = (
             self.diagnosis_by_stroke_type_count_per_year.rename(
                 columns={
@@ -167,3 +210,26 @@ year{"" if self.sim_duration_days // 365 == 1 else "s"} and
         self.sdec_full_per_year = (
             self.sdec_full / (self.g.sim_duration / 60 / 24)
         ) * 365
+
+        self.sdec_full_min = (
+            self.patient_df[self.patient_df["sdec_full_when_required"] == True]
+            .groupby("run")
+            .size()
+            .min()
+        )
+
+        self.sdec_full_per_year_min = (
+            self.sdec_full_min / (self.g.sim_duration / 60 / 24)
+        ) * 365
+
+        self.sdec_full_min = (
+            self.patient_df[self.patient_df["sdec_full_when_required"] == True]
+            .groupby("run")
+            .size()
+            .max()
+        )
+
+        self.sdec_full_per_year_max = self.scale_to_year(self.sdec_full_min)
+
+    def scale_to_year(self, value):
+        return (value / (self.g.sim_duration / 60 / 24)) * 365

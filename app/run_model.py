@@ -515,6 +515,19 @@ Available from {metrics.start_hour_sdec:g}:00-{metrics.end_hour_sdec:g}:00 ({met
                         border=True,
                     )
 
+                st.caption(f"""
+Range: {metrics.scale_to_year(metrics.min_patients_per_run):.0f}
+to {metrics.scale_to_year(metrics.max_patients_per_run):.0f}
+
+In-hours: {metrics.scale_to_year(metrics.in_hours_arrivals.mean()):.0f}
+(range: {metrics.scale_to_year(metrics.in_hours_arrivals.min()):.0f}
+to {metrics.scale_to_year(metrics.in_hours_arrivals.max()):.0f})
+
+Out-of-hours: {metrics.scale_to_year(metrics.ooh_arrivals.mean()):.0f}
+(range: {metrics.scale_to_year(metrics.ooh_arrivals.min()):.0f}
+to {metrics.scale_to_year(metrics.ooh_arrivals.max()):.0f})
+                           """)
+
             with pcol2:
                 st.dataframe(
                     round(
@@ -664,11 +677,13 @@ thrombolysis due to the enhanced capabilities of the CTP scanner.
 
                     st.caption(
                         f"""
+Avoided admissions are those patients who were able to leave after being seen
+in SDEC, and would have had a full admission if the SDEC was not available.
+Range = {metrics.avoid_yearly_min} to {metrics.avoid_yearly_max} per year across runs.
+
 The average total number of admissions avoided for the full model period
 of {metrics.sim_duration_display} were
 {metrics.df_trial_results["Number of Admissions Avoided In Run"].mean():,.0f}.
-Avoided admissions are those patients who were able to leave after being seen
-in SDEC, and would have had a full admission if the SDEC was not available.
                         """
                     )
 
@@ -714,6 +729,7 @@ This is an average occupancy of {(metrics.mean_ward_occ / g.number_of_ward_beds)
 
                     st.caption(
                         f"""
+Range = {metrics.admit_delay_yearly_min} to {metrics.admit_delay_yearly_max} per year across runs.
 The average number of admissions that were delayed for the full model period
 of {metrics.sim_duration_display} were
 {metrics.df_trial_results["Number of Admission Delays"].mean():,.0f}.
@@ -837,7 +853,7 @@ SDEC after their CT or CTP scan due to SDEC being shut.
                     type="symbols",
                 ):
                     st.metric(
-                        label="Patients Bypassing SDEC Due to it Being Full",
+                        label="Average Patients Bypassing SDEC Due to it Being Full",
                         value=f"""
 {metrics.sdec_full_per_year:.0f} of
 {metrics.patients_inside_sdec_operating_hours_per_year:.0f}
@@ -846,10 +862,10 @@ SDEC after their CT or CTP scan due to SDEC being shut.
                         border=True,
                     )
 
-                    st.caption("""
+                    st.caption(f"""
 This looks at the average count across all runs of patients arriving in SDEC
 during its open hours who had to be routed directly to a ward due to the SDEC
-being full.
+being full. Range across runs = {metrics.sdec_full_per_year_min:.0f} to {metrics.sdec_full_per_year_max:.0f} patients per year.
                     """)
 
             st.subheader("Full Per-Run Results for Trial")
@@ -867,13 +883,8 @@ being full.
         #  MARK: Process Maps (DFGs) #
         ##############################
         with tab3:
-            event_log = convert_event_log(my_trial.trial_patient_df)
-            event_log["event"] = event_log["event"].apply(
-                lambda x: x.replace("_time", "").replace("_", " ")
-            )
             plot_dfg_per_feature(
                 split_vars=split_vars,
-                event_log=event_log,
                 patient_df=metrics.patient_df,
             )
 
