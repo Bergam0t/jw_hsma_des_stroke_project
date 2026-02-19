@@ -2,6 +2,7 @@
 Defines global configuration parameters for the stroke ward simulation model.
 """
 
+
 # MARK: g
 # Global class to store parameters for the model.
 class g:
@@ -227,13 +228,13 @@ class g:
 
     # Setting of relative frequencies of onsets
 
-    in_hours_known_onset = 1.0 / 3.0
-    in_hours_unknown_onset_inside_ctp = 1.0 / 3.0
-    in_hours_unknown_onset_outside_ctp = 1.0 / 3.0
+    in_hours_known_onset = 0.7
+    in_hours_unknown_onset_inside_ctp = 0.15
+    in_hours_unknown_onset_outside_ctp = 0.15
 
-    out_of_hours_known_onset = 1.0 / 3.0
-    out_of_hours_unknown_onset_inside_ctp = 1.0 / 3.0
-    out_of_hours_unknown_onset_outside_ctp = 1.0 / 3.0
+    out_of_hours_known_onset = 0.2
+    out_of_hours_unknown_onset_inside_ctp = 0.4
+    out_of_hours_unknown_onset_outside_ctp = 0.4
 
     # These values are changed by the model itself
 

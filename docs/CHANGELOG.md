@@ -89,6 +89,7 @@ of the code for contributors with less experience in coding, have been avoided.
 - Added method that tests that all patient attributes that should always have a value set during the course of the model display this behaviour
 - Adjust setting of onset type so that it can vary for patients generated in hours and out-of-hours
     - set default so that slightly more patients will arrive with an unknown onset time during out-of-hours (which defaults to overnight period from midnight to 7am) than daytime hours
+        - this has had preliminary values set based on https://strokeaudit.org/SupportFiles/Documents/Posters-and-oral-presentations/2020/ESOC-2020-Onset-to-arrival-times_Poster.aspx but will need replacing with more accurate values
     - may wish to decouple the time boundaries for this from the time boundaries for arrival rate in the future
 - Created a new attribute for tracking when patients with TIA, stroke-mimic or non-stroke are avoiding admission due to admission % chance check versus when ICH and I patients avoid admission in the 'true' sense (the sense that this model is primarily interested in)
 
