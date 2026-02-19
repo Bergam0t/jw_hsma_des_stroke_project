@@ -15,16 +15,22 @@ of the code for contributors with less experience in coding, have been avoided.
 ### Web App
 
 - Built first draft of web app in Streamlit
-![](assets/app_preview.png)
+![](/docs/assets/app_preview.png)
     - Display key metrics relating to model function (e.g. number of patients generated), and model outputs (e.g. money saved)
     - Allow setting of various parameters, including
         - Beds available in ward
         - Beds available in SDEC
         - SDEC and CTP operational hours
+        - Uplift in arrival rates
+        - Therapy support
+        - Number of runs
+        - Run and warm-up duration
         - Random seed
+        - Debug message generation (sent to console)
     - Added vidigi animation
     - Added vidigi process maps
     - Added ward and SDEC occupancy plots
+        - Added warm-up duration line to ward plot to allow visual assessment of whether warm-up period is appropriate
     - Added debugging plot for all patient attributes
     - Added about page with process diagram and placeholders for pathway and model FAQs.
 
@@ -42,7 +48,7 @@ of the code for contributors with less experience in coding, have been avoided.
 - Set up documentation site using mkdocs, mkdocs-material and mkdocstrings
     - Set up automatic building and publishing of site with GitHub action
     - Added .nojekyll file to ensure GitHub doesn't try to post-process the built site
-- Built model flow diagram with Mermaid (docs/diagrams/pathway_diagram.mmd)
+- Built model flow diagram with Mermaid (/docs/diagrams/pathway_diagram.mmd)
     - This is also available to view in the 'About' page of the Streamlit app
 - Added first draft of STRESS DES model documentation
     - This can be viewed as part of the documentation site
@@ -58,7 +64,7 @@ of the code for contributors with less experience in coding, have been avoided.
     - Users can now provide separate offsets to separate the start time of CTP and SDEC
     - This also makes conversion of sim time to clock time more intuitive
 
-### Inter-arrival time parameter
+### Patient Arrivals
 
 - Significantly adjusted how the inter-arrival time parameter is handled in the app to allow for demand adjustment via the web app interface
     - this more closely matches how inter-arrival time is defined in resources like HSMA's 'the little book of DES'
@@ -68,6 +74,9 @@ of the code for contributors with less experience in coding, have been avoided.
     - Sim time 0 has been reconceptualised to be midnight on the first simulated day.
     - The start time and duration of the high/low arrival periods can now be set
     - This means that the arrival time periods can be decoupled from the CTP and SDEC availability times if desired
+- Adjusted sampling to avoid peaks at changeover times
+- Switched to a single patient generator that uses the non-stationary poisson process thinning algorithm.
+    - This avoids arrivals being higher at the start of the changeover to the lower rate period and gradually declining.
 
 ### Patient object
 
@@ -76,7 +85,13 @@ of the code for contributors with less experience in coding, have been avoided.
     - boolean defaults from False to None (with the exception of 'journey_complete').
     - This all helps to avoid masking subtle bugs arising from attributes not getting set, as well as the possibility of metric calculations being influenced by incorrect 0 values.
 - Recorded various additional attributes in patient object for easier referencing later
-- Split joing CT/CTP scanning attributes into separate attributes for easier debugging and pathway tracking
+- Split joint CT/CTP scanning attributes into separate attributes for easier debugging and pathway tracking
+- Added method that tests that all patient attributes that should always have a value set during the course of the model display this behaviour
+- Adjust setting of onset type so that it can vary for patients generated in hours and out-of-hours
+    - set default so that slightly more patients will arrive with an unknown onset time during out-of-hours (which defaults to overnight period from midnight to 7am) than daytime hours
+        - this has had preliminary values set based on https://strokeaudit.org/SupportFiles/Documents/Posters-and-oral-presentations/2020/ESOC-2020-Onset-to-arrival-times_Poster.aspx but will need replacing with more accurate values
+    - may wish to decouple the time boundaries for this from the time boundaries for arrival rate in the future
+- Created a new attribute for tracking when patients with TIA, stroke-mimic or non-stroke are avoiding admission due to admission % chance check versus when ICH and I patients avoid admission in the 'true' sense (the sense that this model is primarily interested in)
 
 ### Reproducibility
 
@@ -98,16 +113,35 @@ of the code for contributors with less experience in coding, have been avoided.
 - Added patient objects to a list in the model, allowing for easy individual post-hoc querying of all recorded patient attributes
 - Recorded various additional attributes in trial object for easier referencing later
 
-
 ## Bugfixes
 
+### SDEC
+
 - Fixed typo in conditional check where it was accidentally looking at the sdec_value in the case where sdec_value was 100, where instead it should have been checking for ctp_value == 100 in that branch ([Click here to view commit, though note it's not showing the original code properly](https://github.com/Bergam0t/jw_hsma_des_stroke_project/commit/e5f653217ba40c3364cefcbad21dfb7951dc7eec))
-- Fixed bug in patient diagnosis allocation where a diagnosis between the stroke mimic and non-stroke threshold would not get allocated any diagnosis ([Click here to view commit](https://github.com/Bergam0t/jw_hsma_des_stroke_project/commit/ccecec1b5c6c1239b43951265a8ef72dbf1cc319))
-    - note that this has also been added into the original repository
-- Ensured ward LOS was recorded in patient object for both thrombolysed and non-thrombolysed patients ([Click here to view commit](https://github.com/Bergam0t/jw_hsma_des_stroke_project/commit/874069fcf5081925f7f460f7caf2ba9f570b440b))
 - Swapped SDEC fullness check from <= to < (as previously may have allowed patients in if SDEC at capacity)
-    - note that this has also been added into the original repository
-- Adjust admission avoidance code to ensure that I and ICH patients never incorrectly jump from CT/CTP scan to discharge, and will always spend time in the SDEC at least
+    - **note that this has also been added into the original repository** (https://github.com/jfwilliams4/des_stroke_project/commit/d68374d3b24ab28609f63eb4eb2019ac0d7faf85)
+- Remove resource check from SDEC admission code as this was seemingly sometimes causing delayed arrivals (aedd7cd5555424984c63becc2d95ef548974956e) where the patient would enter SDEC during a period where SDEC should be closed
+
+
+### Patient Pathways
+
+- Adjust admission avoidance code to ensure that patients never incorrectly jump from CT/CTP scan to discharge when the SDEC is open, and will always spend time in the SDEC at least
+- Generally reviewed patient pathways to check behaviour for each subgroup of patients is correct, based on revised understanding of pathways from conversations with original model builder.
+    - Checked subgroups by
+        - SDEC being open
+        - SDEC being full/having capacity
+        - CT/CTP scanner availability
+        - Patient diagnosis type
+        - Admission avoidance flag
+        - Thrombolysis
+
+### Patients
+
+- Fixed bug in patient diagnosis allocation where a diagnosis between the stroke mimic and non-stroke threshold would not get allocated any diagnosis ([Click here to view commit](https://github.com/Bergam0t/jw_hsma_des_stroke_project/commit/ccecec1b5c6c1239b43951265a8ef72dbf1cc319))
+    - note that this has also been added into the original repository (https://github.com/jfwilliams4/des_stroke_project/commit/d68374d3b24ab28609f63eb4eb2019ac0d7faf85)
+- Ensured ward LOS was recorded in patient object for both thrombolysed and non-thrombolysed patients ([Click here to view commit](https://github.com/Bergam0t/jw_hsma_des_stroke_project/commit/874069fcf5081925f7f460f7caf2ba9f570b440b))
+
+
 
 ## Code Admin and Structure Changes
 
@@ -124,10 +158,6 @@ of the code for contributors with less experience in coding, have been avoided.
 - Added a separate requirements.txt file for web app
     - This removes the requirements that are not required for the web app, such as mkdocs and pytest
     - This will be picked up by Streamlit community cloud, and shortens the load time for container reloads
-
-# v.1.0.1
-
-
 
 # v0.1.0
 

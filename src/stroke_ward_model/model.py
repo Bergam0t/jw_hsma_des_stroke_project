@@ -81,7 +81,7 @@ class Model:
     occupancy_graph_df : pd.DataFrame
         Time-series data for monitoring ward occupancy levels.
     patient_objects : list
-        A collection of all `Patient` class instances created during the 
+        A collection of all `Patient` class instances created during the
         simulation.
 
     Notes
@@ -278,35 +278,41 @@ class Model:
         All generated content has been thoroughly reviewed.
         """
         while True:
-            # if 0 <= self.env.now % 1440 < 960
+            sampled_inter = self.patient_inter_dist.sample(simulation_time=self.env.now)
+
+            # Freeze this instance of this function in place until the
+            # inter-arrival time has elapsed.
+            yield self.env.timeout(sampled_inter)
+
+            trace(
+                time=self.env.now,
+                debug=g.show_trace,
+                msg=f"⏲️ Next patient arriving in {sampled_inter:.1f} minutes",
+                identifier=self.patient_counter,
+                config=g.trace_config,
+            )
+
+            # Increment the patient counter by 1 for each new patient
+            self.patient_counter += 1
+
+            # Create a new patient - an instance of the Patient Class we
+            # defined above. patient counter ID passed from above to patient
+            # class.
+            p = Patient(self.patient_counter)
+            self.patient_objects.append(p)
+            if self.env.now < g.warm_up_period:
+                p.generated_during_warm_up = True
+            else:
+                p.generated_during_warm_up = False
+
             time_of_day = self.env.now % 1440
+
             if self.is_in_hours(time_of_day):
-                # Change the Global Class variable for the generator to TRUE
+                # Change the Global Class variable
                 g.patient_arrival_gen_1 = True
                 g.patient_arrival_gen_2 = False
 
-                sampled_inter = self.patient_inter_day_dist.sample()
-
-                trace(
-                    time=self.env.now,
-                    debug=g.show_trace,
-                    msg=f"⏲️ Next patient arriving in {sampled_inter:.1f} minutes",
-                    config=g.trace_config,
-                    identifier=self.patient_counter,
-                )
-
-                # Freeze this instance of this function in place until the
-                # inter-arrival time has elapsed.
-                yield self.env.timeout(sampled_inter)
-
-                # Increment the patient counter by 1 for each new patient
-                self.patient_counter += 1
-
-                # Create a new patient - an instance of the Patient Class we
-                # defined above. patient counter ID passed from above to patient
-                # class.
-                p = Patient(self.patient_counter)
-                self.patient_objects.append(p)
+                p.onset_type = self.onset_type_distribution_in_hours.sample()
 
                 trace(
                     time=self.env.now,
@@ -317,106 +323,13 @@ class Model:
                 )
 
                 p.arrived_ooh = False
-                if self.env.now < g.warm_up_period:
-                    p.generated_during_warm_up = True
-                else:
-                    p.generated_during_warm_up = False
 
-                # Tell SimPy to start the stroke assessment function with
-                # this patient (the generator function that will model the
-                # patient's journey through the system)
-                self.env.process(self.stroke_assessment(p))
-
-                # TODO: SR query: explore whether this is the most
-                # intuitive/easily managed way to handle interarrival rate.
-                # I think this means arrivals average every 200 minutes.
-                # TODO: SR query: confirm with John in case this was done in
-                # this way for a particular reason, but I've swapped it to a
-                # more intuitive use and something that will allow
-                # for setting via the app interface too
-                # Original code below for comparison:
-                # ----- ORIGINAL -------- #
-                # sampled_inter = random.expovariate(0.025 / 5)
-                # sampled_inter = random.expovariate(1.0 / g.patient_inter_day)
-                # ----- END ORIGINAL -------- #
-
-            else:
-                yield self.env.timeout(1)
-
-    # MARK: M: OOH arrivals
-    # A generator function for the patient arrivals out of hours.
-    def generator_patient_arrivals_ooh(self):
-        """
-        A SimPy process generator that handles out-of-hours (OOH) patient arrivals.
-
-        This function runs as a continuous loop, monitoring the simulation time
-        to identify the "night" window (960 to 1440 minutes in a 24-hour cycle).
-        When active, it instantiates patients and schedules their journey
-        through the clinical pathway.
-
-        If out-of-hours, it:
-
-        1. Updates global arrival flags.
-
-        2. Instantiates a new Patient object.
-
-        3. Records trace information.
-
-        4. Triggers the `stroke_assessment` process for the patient.
-
-        5. Samples an inter-arrival time and yields a timeout.
-
-        If in-hours, it yields a small timeout before checking again.
-
-        Arrival rates are determined by `random.expovariate` using the
-        `g.patient_inter_night` parameter. NOTE that this does not use the
-        `g.patient_inter_night` parameter directly, and instead uses it
-        alongside a rate modifier - careful inspection of the code to
-        understand the impacts of changing `g.patient_inter_night` is
-        recommended, and this may be adjusted in a future version of the model.
-
-        Patients generated here have their `arrived_ooh` attribute set to True.
-
-        This process triggers the `stroke_assessment` process for every
-        newly created patient.
-
-        Notes
-        -----
-        GENAI declaration (SR): this docstring has been generated with the aid
-        of Google Gemini Flash.
-        All generated content has been thoroughly reviewed.
-
-        """
-        while True:
-            # if 960 <= self.env.now % 1440 < 1440:
-            time_of_day = self.env.now % 1440
-            if self.is_out_of_hours(time_of_day):
-                # Change the Global Class variable for the generator to TRUE
+            elif self.is_out_of_hours(time_of_day):
+                # Change the Global Class variable
                 g.patient_arrival_gen_1 = False
                 g.patient_arrival_gen_2 = True
 
-                sampled_inter = self.patient_inter_night_dist.sample()
-
-                trace(
-                    time=self.env.now,
-                    debug=g.show_trace,
-                    msg=f"⏲️ Next OOH patient arriving in {sampled_inter:.1f} minutes",
-                    identifier=self.patient_counter,
-                    config=g.trace_config,
-                )
-
-                # Freeze this instance of this function in place until the
-                # inter-arrival time has elapsed.
-                yield self.env.timeout(sampled_inter)
-
-                # Increment the patient counter by 1 for each new patient
-                self.patient_counter += 1
-
-                # Create a new patient - an instance of the Patient Class we
-                # defined above. patient counter ID passed from above to patient
-                # class.
-                p = Patient(self.patient_counter)
-                self.patient_objects.append(p)
+                p.onset_type = self.onset_type_distribution_out_of_hours.sample()
 
                 trace(
                     time=self.env.now,
@@ -427,28 +340,11 @@ class Model:
                 )
 
                 p.arrived_ooh = True
-                if self.env.now < g.warm_up_period:
-                    p.generated_during_warm_up = True
 
-                # Tell SimPy to start the stroke assessment function with
-                # this patient (the generator function that will model the
-                # patient's journey through the system)
-                self.env.process(self.stroke_assessment(p))
-
-                # TODO: SR query: explore whether this is the most
-                # intuitive/easily managed way to handle interarrival rate.
-                # I think this means arrivals average every 666.6 minutes.
-                # TODO: SR query: confirm with John in case this was done in
-                # this way for a particular reason, but I've swapped it to a
-                # more intuitive use and something that will allow
-                # for setting via the app interface too
-                # Original code below for comparison:
-                # ----- ORIGINAL -------- #
-                # sampled_inter = random.expovariate(0.0075 / 5)
-                # sampled_inter = random.expovariate(1.0 / g.patient_inter_night)
-                # ----- END ORIGINAL -------- #
-            else:
-                yield self.env.timeout(1)
+            # Tell SimPy to start the stroke assessment function with
+            # this patient (the generator function that will model the
+            # patient's journey through the system)
+            self.env.process(self.stroke_assessment(p))
 
     # MARK: M: Obstruct CTP
     def obstruct_ctp(self):
@@ -540,68 +436,68 @@ class Model:
         of Google Gemini Flash.
         All generated content has been thoroughly reviewed.
         """
-        #  SR: Add initial offset
+        # SR: Add initial offset
         # SR: Patient generators have also been updated
         # to match with how this is working
         yield self.env.timeout(g.sdec_opening_hour * 60)
 
         while True:
             yield self.env.timeout(g.sdec_unav_freq)
-            # Once elapsed, this generator requests the SDEC with
-            # a priority of -1. As the patient priority is set at 1
-            # the SDEC will take priority over any patients waiting.
             g.sdec_unav = True
-            with self.sdec_bed.request(priority=-1) as req:
-                yield req
-                trace(
-                    time=self.env.now,
-                    debug=g.show_trace,
-                    msg=f"🏥 SDEC CLOSES at {minutes_to_ampm(int(self.env.now % 1440))}. Occupancy at closure: {len(self.sdec_occupancy)} of {g.sdec_beds} beds.",
-                    identifier=self.patient_counter,
-                    config=g.trace_config,
-                )
 
-                # Freeze with the SDEC held in place for the unavailability
-                # time, in the model this means patients admitted in this time
-                # will not have passed through the SDEC.
-                # freq and unav times are set in the g class
-                yield self.env.timeout(g.sdec_unav_time)
-                trace(
-                    time=self.env.now,
-                    debug=g.show_trace,
-                    msg=f"🏥 SDEC OPENS at {minutes_to_ampm(int(self.env.now % 1440))}. Occupancy at opening: {len(self.sdec_occupancy)} of {g.sdec_beds} beds.",
-                    identifier=self.patient_counter,
-                    config=g.trace_config,
-                )
-                g.sdec_unav = False
-                if self.env.now > g.warm_up_period:
-                    self.sdec_freeze_counter += 1
+            trace(
+                time=self.env.now,
+                debug=g.show_trace,
+                msg=f"🏥 SDEC CLOSES at {minutes_to_ampm(int(self.env.now % 1440))}. Occupancy at closure: {len(self.sdec_occupancy)} of {g.sdec_beds} beds.",
+                identifier=self.patient_counter,
+                config=g.trace_config,
+            )
 
-    # MARK: M: Stroke assessment
-    # A generator function that represents the pathway for a patient going
-    # through the stroke assessment process.
-    # The patient object is passed in to the generator function so we can
-    # extract information from / record information to it
-    def stroke_assessment(self, patient):
+            # Freeze with the SDEC held in place for the unavailability
+            # time, in the model this means patients admitted in this time
+            # will not have passed through the SDEC.
+            # freq and unav times are set in the g class
+            yield self.env.timeout(g.sdec_unav_time)
+
+            trace(
+                time=self.env.now,
+                debug=g.show_trace,
+                msg=f"🏥 SDEC OPENS at {minutes_to_ampm(int(self.env.now % 1440))}. Occupancy at opening: {len(self.sdec_occupancy)} of {g.sdec_beds} beds.",
+                identifier=self.patient_counter,
+                config=g.trace_config,
+            )
+
+            g.sdec_unav = False
+
+            if self.env.now > g.warm_up_period:
+                self.sdec_freeze_counter += 1
+
+    def set_patient_attributes(self, patient):
         """
-        Simulates the full assessment and treatment pathway for patients
-        in a stroke pathway.
+        Sets a series of randomised per-patient attributes
 
         Parameters
         ----------
         patient : Instance of class `Patient`
             One single unique patient object.
         """
+        # For now, no-one gets thrombectomy
+        patient.thrombectomy = False
 
         # Populate various patient attributes
-        # patient.onset_type = random.randint(0, 2)
-        patient.onset_type = self.onset_type_distribution.sample()
         # patient.mrs_type = min(round(random.expovariate(1.0 / g.mean_mrs)), 5)
         patient.mrs_type = min(round(self.mrs_type_distribution.sample()), 5)
         # patient.diagnosis = random.randint(0, 100)
         patient.diagnosis = self.diagnosis_distribution.sample()
         # patient.non_admission = random.randint(0, 100)
         patient.non_admission = self.non_admission_distribution.sample()
+
+        # Define threshold for admission for TIA + stroke mimic patients
+        self.tia_admission_chance = self.tia_admission_chance_distribution.sample()
+
+        self.stroke_mimic_admission_chance = (
+            self.stroke_mimic_admission_chance_distribution.sample()
+        )
 
         # This code introduces a slight element of randomness into the patient's
         # diagnosis.
@@ -664,6 +560,23 @@ class Model:
             # check all code that interacts with this runs correctly.
             self.results_df.at[patient.id, "MRS Type"] = patient.mrs_type
 
+    # MARK: M: Stroke assessment
+    # A generator function that represents the pathway for a patient going
+    # through the stroke assessment process.
+    # The patient object is passed in to the generator function so we can
+    # extract information from / record information to it
+    def stroke_assessment(self, patient):
+        """
+        Simulates the full assessment and treatment pathway for patients
+        in a stroke pathway.
+
+        Parameters
+        ----------
+        patient : Instance of class `Patient`
+            One single unique patient object.
+        """
+        self.set_patient_attributes(patient)
+
         trace(
             time=self.env.now,
             debug=g.show_trace,
@@ -696,9 +609,12 @@ class Model:
                 g.patient_arrival_gen_2
             )
 
+        #######################################################################
+        # MARK: Nurse triage
         # This code says request a nurse resource, and do all of the following
         # block of code with that nurse resource held in place (and therefore
         # not usable by another patient)
+        ########################################################################
         with self.nurse.request() as req:
             # Freeze the function until the request for a nurse can be met.
             # The patient is currently queuing.
@@ -884,58 +800,6 @@ class Model:
         if self.env.now > g.warm_up_period:
             self.results_df.at[patient.id, "Thrombolysis"] = patient.thrombolysis
 
-        ####################################
-        # Admission avoidance - non-stroke #
-        ####################################
-        # This code applies a non stroke admission avoidance variable to the
-        # patient.
-        # For patients who have TIA, non-stroke or stroke mimic, they may be able
-        # to avoid admission even if this is prior to SDEC
-
-        # TODO: SR: Confirm why this appeared twice in the original model (and
-        # still does here) and whether it should only be checked once (prior
-        # to SDEC admission) or twice
-
-        self.tia_admission_chance = self.tia_admission_chance_distribution.sample()
-
-        self.stroke_mimic_admission_chance = (
-            self.stroke_mimic_admission_chance_distribution.sample()
-        )
-
-        if (
-            patient.non_admission >= self.tia_admission_chance
-            and patient.patient_diagnosis == 2
-        ):
-            # TODO: SR: I've temporarily commented out admission avoidance here
-            # and replaced it with a bespoke flag
-            # patient.admission_avoidance = True
-            patient.non_admitted_tia_ns_sm = True
-            trace(
-                time=self.env.now,
-                debug=g.show_trace,
-                msg=f"↩️ TIA Patient {patient.id} avoided admission.",
-                identifier=patient.id,
-                config=g.trace_config,
-            )
-
-        elif (
-            patient.non_admission >= self.stroke_mimic_admission_chance
-            and patient.patient_diagnosis > 2
-        ):
-            # TODO: SR: I've temporarily commented out admission avoidance here
-            # and replaced it with a bespoke flag
-            # patient.admission_avoidance = True
-            patient.non_admitted_tia_ns_sm = True
-            trace(
-                time=self.env.now,
-                debug=g.show_trace,
-                msg=f"↩️ Stroke mimic or non-stroke Patient {patient.id} (diagnosis {patient.diagnosis}) avoided admission.",
-                identifier=patient.id,
-                config=g.trace_config,
-            )
-        else:
-            patient.non_admitted_tia_ns_sm = False
-
         #########################
         # MARK: SDEC Admission
         #########################
@@ -961,25 +825,16 @@ class Model:
             else:
                 patient.sdec_full_when_required = True
 
+        # Branch for if SDEC is available
         # SR: Note that I have changed the check from <= to < (so that patients
         # are only allowed to request a bed when a bed is free)
-        if (
-            g.sdec_unav == False
-            and len(self.sdec_occupancy) < g.sdec_beds
-            and (
-                # SR: TODO: Note that I've temporarily commented out the
-                # admission avoidance check and swapped it for checking against
-                # a new bespoke attribute
-                # patient.admission_avoidance == False or
-                patient.non_admitted_tia_ns_sm == False
-            )
-        ):
+        if g.sdec_unav == False and len(self.sdec_occupancy) < g.sdec_beds:
             # If the conditions above are met the patient attribute for the
             # SDEC are changed to True and the patient is added to the SDEC
             # occupancy list.
 
             # SR: The request is only necessary here for being able to
-            # determine which bed ends up being used, which we require for 
+            # determine which bed ends up being used, which we require for
             # animating it correctly. However, we still need to hold it for the
             # duration of this code block so that someone else doesn't end up
             # in the same bed!
@@ -1025,9 +880,11 @@ class Model:
 
                 patient.sdec_pathway = True
 
+                ###########################################################
+                # ADMISSION AVOIDANCE
                 # This code checks if the patient is eligible for admission
                 # avoidance depending on if therapy support is enabled.
-
+                ###########################################################
                 if g.therapy_sdec == False:
                     if (
                         patient.patient_diagnosis < 2
@@ -1046,12 +903,51 @@ class Model:
                 else:
                     patient.admission_avoidance = False
 
+                ##########################################################
+                # Non-admission - non-stroke, TIA and stroke mimic       #
+                ##########################################################
+                # For patients who have TIA, non-stroke or stroke mimic,
+                # they have a high chance of avoiding admission, but this
+                # is not counted in the same way
+
+                if (
+                    patient.non_admission >= self.tia_admission_chance
+                    and patient.patient_diagnosis == 2
+                ):
+                    patient.admission_avoidance = False
+                    patient.non_admitted_tia_ns_sm = True
+
+                    trace(
+                        time=self.env.now,
+                        debug=g.show_trace,
+                        msg=f"↩️ TIA Patient {patient.id} avoided admission.",
+                        identifier=patient.id,
+                        config=g.trace_config,
+                    )
+
+                elif (
+                    patient.non_admission >= self.stroke_mimic_admission_chance
+                    and patient.patient_diagnosis > 2
+                ):
+                    patient.admission_avoidance = False
+                    patient.non_admitted_tia_ns_sm = True
+                    trace(
+                        time=self.env.now,
+                        debug=g.show_trace,
+                        msg=f"↩️ Stroke mimic or non-stroke Patient {patient.id} (diagnosis {patient.diagnosis}) avoided admission.",
+                        identifier=patient.id,
+                        config=g.trace_config,
+                    )
+                else:
+                    patient.non_admitted_tia_ns_sm = False
+
                 # Calculate SDEC stay time from exponential
                 # sampled_sdec_stay_time = random.expovariate(1.0 / g.mean_n_sdec_time)
                 sampled_sdec_stay_time = self.sdec_time_dist.sample()
 
                 # Add patient SDEC LOS to their patient object
                 patient.sdec_los = sampled_sdec_stay_time
+
                 # Freeze this function in place for the activity time we sampled
                 # above.
                 trace(
@@ -1061,12 +957,16 @@ class Model:
                     identifier=patient.id,
                     config=g.trace_config,
                 )
+
                 yield self.env.timeout(sampled_sdec_stay_time)
 
                 # This code checks if the ward is full, if this is the case the
                 # patient will not be released from the SDEC, thus impeding it use
 
-                if patient.admission_avoidance != True:
+                if (
+                    not patient.admission_avoidance
+                    and not patient.non_admitted_tia_ns_sm
+                ):
                     while len(self.ward_occupancy) >= g.number_of_ward_beds:
                         yield self.env.timeout(1)
 
@@ -1091,9 +991,9 @@ class Model:
                     config=g.trace_config,
                 )
 
-            ################################
-            # MARK: Admission Avoidance
-            ################################
+            ##########################################
+            # MARK: Admission Avoidance cost savings
+            ##########################################
             # This code add information regarding the patients admission avoidance.
 
             if patient.admission_avoidance == True and patient.patient_diagnosis < 2:
@@ -1129,55 +1029,66 @@ class Model:
                 ):
                     self.admission_avoidance.append(patient)
 
-                # This code introduces a small element of randomness into the
-                # admission rates for the non stroke, tia and stroke mimic
-                # patients.
-                self.tia_admission_chance = (
-                    self.tia_admission_chance_distribution.sample()
-                )
-
-                self.stroke_mimic_admission_chance = (
-                    self.stroke_mimic_admission_chance_distribution.sample()
-                )
-
                 # This code exists after the admission avoidance code so they
                 # are not added to the admission avoidance list, as that should
-                # only be for SDEC patients who avoid admission. This code
-                # checks if TIA, non stroke and stroke mimic patients should be
-                # admitted based on the values established in the previous code
-                # and g class.
+                # only be for SDEC patients who avoid admission.
+                # This code ensures that these patients get an exit time
 
-                if (
-                    patient.non_admission >= self.tia_admission_chance
-                    and patient.patient_diagnosis == 2
-                ):
-                    # TODO: SR: I've temporarily commented out admission
-                    # avoidance here and replaced it with a bespoke flag
-                    # patient.admission_avoidance = True
-                    patient.non_admitted_tia_ns_sm = True
-
+                if patient.non_admitted_tia_ns_sm == True:
                     patient.exit_time = self.env.now
                     patient.journey_completed = True
 
-                elif (
-                    patient.non_admission >= self.stroke_mimic_admission_chance
-                    and patient.patient_diagnosis > 2
-                ):
-                    # TODO: SR: I've temporarily commented out admission
-                    # avoidance here and replaced it with a bespoke flag
-                    # patient.admission_avoidance = True
-                    patient.non_admitted_tia_ns_sm = True
-
-                    patient.exit_time = self.env.now
-                    patient.journey_completed = True
+        ###############################################
+        # MARK: SDEC Full or closed
+        # Branch of logic for if SDEC is not available
+        ###############################################
         else:
             patient.sdec_pathway = False
 
+            # If SDEC not available, we will see some % of TIA and ED patients be returned
+            # to ED at this stage (i.e. outside of the modelled part of the system) and they
+            # won't be seen again.
+            if (
+                patient.non_admission >= self.tia_admission_chance
+                and patient.patient_diagnosis == 2
+            ):
+                patient.admission_avoidance = False
+                patient.non_admitted_tia_ns_sm = True
+                trace(
+                    time=self.env.now,
+                    debug=g.show_trace,
+                    msg=f"↩️ TIA Patient {patient.id} avoided admission.",
+                    identifier=patient.id,
+                    config=g.trace_config,
+                )
+
+            elif (
+                patient.non_admission >= self.stroke_mimic_admission_chance
+                and patient.patient_diagnosis > 2
+            ):
+                patient.admission_avoidance = False
+                patient.non_admitted_tia_ns_sm = True
+                trace(
+                    time=self.env.now,
+                    debug=g.show_trace,
+                    msg=f"↩️ Stroke mimic or non-stroke Patient {patient.id} (diagnosis {patient.diagnosis}) avoided admission.",
+                    identifier=patient.id,
+                    config=g.trace_config,
+                )
+            else:
+                patient.non_admitted_tia_ns_sm = False
+
+            if patient.non_admitted_tia_ns_sm == True:
+                patient.exit_time = self.env.now
+                patient.journey_completed = True
+
+        #####################################################################
         # MARK: Ward Admission
         # once all the above code has been run all patients who will not admit
         # have a True admission avoidance attribute. For all the patients that
         # remain false, the below code will run simulating the admission to the
         # ward.
+        ############################################################################
 
         # TODO: sampled ward activity time is done after a bed is obtained.
         # TODO: this is what is recorded as LOS within the model, but arguably
@@ -1186,11 +1097,10 @@ class Model:
         # is LOS increased by spending time on an 'inappropriate' ward in the
         # real world, and if so, does this need to be reflected here?
 
-        # if patient.admission_avoidance != True:
-        if (
-            patient.admission_avoidance != True
-            or patient.non_admitted_tia_ns_sm == True
-        ):
+        if not patient.admission_avoidance and not patient.non_admitted_tia_ns_sm:
+            # Anyone who has made it to here has definitely not avoided admission
+            patient.admission_avoidance = False
+
             # These code assigns a time to the start q variable. In stroke care
             # delays can have serious consequence so modeling this is very
             # important as flow disruption are a common issue.
@@ -1820,7 +1730,7 @@ class Model:
         mean_ward_occupancy : float
             The average number of beds occupied during the run.
         admission_delays : int
-            Total number of patients who experienced any wait time for a ward 
+            Total number of patients who experienced any wait time for a ward
             bed.
         mean_los_ward : float
             Average inpatient length of stay in hours.
@@ -2082,9 +1992,6 @@ class Model:
         generator_patient_arrivals: generates in-hours patients and sends them
             through the assessment pathway.
 
-        generator_patient_arrivals_ooh: generates out-of-hours patients and
-            sends them through the assessment pathway.
-
         obstruct_ctp: ensures the ctp scanner is only available for the
             specified times.
 
@@ -2104,12 +2011,18 @@ class Model:
 
         self.env.process(self.track_days())
         self.env.process(self.generator_patient_arrivals())
-        self.env.process(self.generator_patient_arrivals_ooh())
         self.env.process(self.obstruct_ctp())
         self.env.process(self.obstruct_sdec())
 
         # Run the model for the duration specified in g class
         self.env.run(until=(g.sim_duration + g.warm_up_period))
+
+        # Check that all patient objects generated are valid
+        # This can highlight errors with patients who don't get all of their attributes set,
+        # which can indicate issues with logic branches
+        # Only check for patients with a completed journey as those with incomplete journeys
+        # may simply have not reached the point in the model where the relevant attribute was set
+        [p.validate() for p in self.patient_objects if p.journey_completed]
 
         # Now the simulation run has finished, call the method that calculates
         # run results

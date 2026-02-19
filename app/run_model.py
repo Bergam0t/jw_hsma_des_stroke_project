@@ -21,6 +21,8 @@ from plots import (
     plot_time_heatmap,
 )
 
+from metrics import Metrics
+
 st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 
 st.logo("app/resources/nhs-logo-colour.png", size="large")
@@ -42,9 +44,12 @@ patient_level_metric_choices = {
     "Non-Admission": "non_admission",
     "Advanced CT Pathway": "advanced_ct_pathway",
     "SDEC Pathway": "sdec_pathway",
+    "SDEC Running when Required": "sdec_running_when_required",
+    "SDEC Full when Required": "sdec_full_when_required",
     "Thrombolysis": "thrombolysis",
     "Thrombectomy": "thrombectomy",
     "Admission Avoidance": "admission_avoidance",
+    "Patient with TIA, stroke mimic or non-stroke not admitted": "non_admitted_tia_ns_sm",
     "Ward LOS": "ward_los",
     "Ward LOS for Thrombolysis Patients": "ward_los_thrombolysis",
     "SDEC LOS": "sdec_los",
@@ -62,9 +67,12 @@ split_vars = {
     "Priority": "priority",
     "Advanced CT Pathway": "advanced_ct_pathway",
     "SDEC Pathway": "sdec_pathway",
+    "SDEC Running when Required": "sdec_running_when_required",
+    "SDEC Full when Required": "sdec_full_when_required",
     "Thrombolysis": "thrombolysis",
     "Thrombectomy": "thrombectomy",
     "Admission Avoidance": "admission_avoidance",
+    "Patient with TIA, stroke mimic or non-stroke not admitted": "non_admitted_tia_ns_sm",
     "Arrived OOH": "arrived_ooh",
     "Patient Diagnosis Type": "patient_diagnosis_type",
 }
@@ -92,25 +100,41 @@ time_vars = {
 with st.sidebar:
     st.subheader("Stroke Ward Configuration")
 
-    number_of_ward_beds = st.slider(
-        "Choose the number of beds available in the ward", 10, 100, 49
+    number_of_triage_nurses = st.slider(
+        "Choose the number of nurses available for triage", 0, 10, 2
     )
-    g.number_of_ward_beds = number_of_ward_beds
+
+    g.number_of_nurses = number_of_triage_nurses
+
+    therapy_sdec = st.toggle(
+        "Toggle whether the SDEC will run with full therapy support",
+        help="""
+Off = no therapy support.
+
+If therapy support enabled, patients with a higher
+ level of disability will be eligible for admission avoidance via SDEC (maximum
+ MRS of 3 rather than 2 without therapy).
+
+ Therapy incurs no cost in the model as
+ the number of patients seen does not change - the point in their journey and
+ location of where they are seen is the only thing changing.
+        """,
+    )
+    g.therapy_sdec = therapy_sdec
 
     number_of_sdec_beds = st.slider(
         "Choose the number of beds available in the SDEC", 0, 20, 5
     )
     g.sdec_beds = number_of_sdec_beds
 
-    therapy_sdec = st.toggle(
-        "Toggle whether the SDEC will run with full therapy support",
-        help="""
-Off = no therapy support. If therapy support enabled, patients with a higher
- level of disability will be eligible for admission avoidance via SDEC (maximum
- MRS of 3 rather than 2 without therapy).
-        """,
+    number_of_ward_beds = st.slider(
+        "Choose the number of beds available in the ward", 10, 100, 49
     )
-    g.therapy_sdec = therapy_sdec
+    g.number_of_ward_beds = number_of_ward_beds
+
+    st.caption(
+        f"Total number of beds available: {number_of_ward_beds + number_of_sdec_beds}"
+    )
 
     st.divider()
     ###############################
@@ -163,13 +187,10 @@ This equates to the CT perfusion scanner being available roughly
             step=0.25,
         )
 
-        st.caption(
-            f"The SDEC is available {sdec_avail_hours / 24.0:.1%} of the time"
-        )
+        st.caption(f"The SDEC is available {sdec_avail_hours / 24.0:.1%} of the time")
 
         sdec_open_time = st.time_input(
-            "What time should the SDEC be open from?",
-            value="08:00", step=60 * 60
+            "What time should the SDEC be open from?", value="08:00", step=60 * 60
         )
         g.sdec_opening_hour = sdec_open_time.hour
 
@@ -322,7 +343,7 @@ out-of-hours?
     st.caption(
         f"""
 You are simulating {(sim_duration_days // 365)}
-year{'' if sim_duration_days // 365 == 1 else 's'} and
+year{"" if sim_duration_days // 365 == 1 else "s"} and
 {sim_duration_days % 365} days
         """
     )
@@ -344,9 +365,7 @@ Time' graph to help assess whether your warm-up duration is appropriate.
 
     g.warm_up_period = warm_up_duration_minutes
 
-    debug_console = st.toggle(
-        "Turn on Debugging Console Messages", value=False
-    )
+    debug_console = st.toggle("Turn on Debugging Console Messages", value=False)
 
     g.show_trace = debug_console
 
@@ -380,14 +399,11 @@ if button_run_pressed:
         # Call the run_trial method of our Trial object
         my_trial.run_trial()
 
-        # Filter out any patients who were generated before the warm-up
-        # period elapsed
-        patient_df = my_trial.trial_patient_df[
-            my_trial.trial_patient_df["generated_during_warm_up"] == False
-        ]
-
-        sim_duration_days = g.sim_duration / 60 / 24
-        sim_duration_years = sim_duration_days / 365
+        metrics = Metrics(
+            g=g(),
+            patient_df_including_warmup=my_trial.trial_patient_df,
+            df_trial_results=my_trial.df_trial_results,
+        )
 
         # st.write(my_trial.trial_info)
 
@@ -407,7 +423,7 @@ if button_run_pressed:
         with tab1:
             st.subheader("Configuration")
 
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2, col3, col4, col5 = st.columns(5)
 
             with col1:
                 with iconMetricContainer(
@@ -419,18 +435,13 @@ if button_run_pressed:
                 ):
                     st.metric(
                         label="CTP scanners",
-                        value=g.number_of_ctp,
+                        value="Yes" if g.number_of_ctp > 0 else "No",
                         border=True,
                     )
 
-                    start_hour = g.ctp_opening_hour
-                    duration_hours = ((24 * 60) - g.ctp_unav_time) / 60
-
-                    end_hour = (start_hour + duration_hours) % 24
-
                     st.caption(
                         f"""
-Available from {start_hour:g}:00-{end_hour:g}:00 ({duration_hours:g}h)
+Available from {metrics.start_hour_ctp:g}:00-{metrics.end_hour_ctp:g}:00 ({metrics.duration_hours_ctp:g}h)
                         """
                     )
 
@@ -449,14 +460,9 @@ Available from {start_hour:g}:00-{end_hour:g}:00 ({duration_hours:g}h)
                     )
 
                     if g.sdec_beds > 0:
-                        start_hour = g.sdec_opening_hour
-                        duration_hours = ((24 * 60) - g.sdec_unav_time) / 60
-
-                        end_hour = (start_hour + duration_hours) % 24
-
                         st.caption(
                             f"""
-Available from {start_hour:g}:00-{end_hour:g}:00 ({duration_hours:g}h)
+Available from {metrics.start_hour_sdec:g}:00-{metrics.end_hour_sdec:g}:00 ({metrics.duration_hours_sdec:g}h)
                             """
                         )
                     else:
@@ -496,11 +502,22 @@ Available from {start_hour:g}:00-{end_hour:g}:00 ({duration_hours:g}h)
                     # Blank lines for spacing
                     st.caption("")
 
-            average_patients_per_run = patient_df.groupby("run").size().mean()
+            with col5:
+                with iconMetricContainer(
+                    key="triage_nurse_count",
+                    icon_unicode="f5a3",
+                    family="outline",
+                    icon_color="black",
+                    type="symbols",
+                ):
+                    st.metric(
+                        label="Triage Nurses",
+                        value=f"{g.number_of_nurses}",
+                        border=True,
+                    )
 
-            average_patients_per_year = (
-                average_patients_per_run / (g.sim_duration / 60 / 24)
-            ) * 365
+                    # Blank lines for spacing
+                    st.caption("")
 
             st.divider()
             st.subheader("Patient throughoutput")
@@ -517,54 +534,27 @@ Available from {start_hour:g}:00-{end_hour:g}:00 ({duration_hours:g}h)
                 ):
                     st.metric(
                         label="Average Patients per Year",
-                        value=f"{average_patients_per_year:.0f}",
+                        value=f"{metrics.average_patients_per_year:.0f}",
                         border=True,
                     )
 
+                st.caption(f"""
+Range: {metrics.scale_to_year(metrics.min_patients_per_run):.0f}
+to {metrics.scale_to_year(metrics.max_patients_per_run):.0f}
+
+In-hours: {metrics.scale_to_year(metrics.in_hours_arrivals.mean()):.0f}
+(range: {metrics.scale_to_year(metrics.in_hours_arrivals.min()):.0f}
+to {metrics.scale_to_year(metrics.in_hours_arrivals.max()):.0f})
+
+Out-of-hours: {metrics.scale_to_year(metrics.ooh_arrivals.mean()):.0f}
+(range: {metrics.scale_to_year(metrics.ooh_arrivals.min()):.0f}
+to {metrics.scale_to_year(metrics.ooh_arrivals.max()):.0f})
+                           """)
+
             with pcol2:
-                diagnosis_by_stroke_type_count = (
-                    patient_df.groupby(["run", "patient_diagnosis_type"])
-                    .size()
-                    .groupby("patient_diagnosis_type")
-                    .mean()
-                    .reset_index(name="mean_patients_per_run")
-                )
-
-                diagnosis_by_stroke_type_count["patient_diagnosis_type"] = (
-                    pd.Categorical(
-                        diagnosis_by_stroke_type_count[
-                            "patient_diagnosis_type"
-                        ],
-                        categories=["ICH", "I", "TIA",
-                                    "Stroke Mimic", "Non Stroke"],
-                        ordered=True,
-                    )
-                )
-
-                diagnosis_by_stroke_type_count = (
-                    diagnosis_by_stroke_type_count.sort_values(
-                        "patient_diagnosis_type"
-                    )
-                )
-
-                diagnosis_by_stroke_type_count_per_year = (
-                    diagnosis_by_stroke_type_count.copy()
-                )
-
-                diagnosis_by_stroke_type_count["mean_patients_per_run"] = (
-                    diagnosis_by_stroke_type_count["mean_patients_per_run"]
-                    / (g.sim_duration / 60 / 24)
-                    * 365
-                )
-
                 st.dataframe(
                     round(
-                        diagnosis_by_stroke_type_count_per_year.rename(
-                            columns={
-                                "patient_diagnosis_type": "Diagnosis",
-                                "mean_patients_per_run": "Count",
-                            }
-                        ),
+                        metrics.diagnosis_by_stroke_type_count,
                         0,
                     ),
                     hide_index=True,
@@ -580,30 +570,13 @@ Available from {start_hour:g}:00-{end_hour:g}:00 ({duration_hours:g}h)
                 ):
                     st.metric(
                         label="Average Patients per Day",
-                        value=f"{(average_patients_per_year / 365):.0f}",
+                        value=f"{(metrics.average_patients_per_day):.0f}",
                         border=True,
                     )
 
             with pcol4:
-                diagnosis_by_stroke_type_count_per_day = (
-                    diagnosis_by_stroke_type_count_per_year.copy()
-                )
-
-                diagnosis_by_stroke_type_count_per_day[
-                    "mean_patients_per_run"
-                ] = (
-                    diagnosis_by_stroke_type_count_per_day[
-                        "mean_patients_per_run"
-                    ]
-                    / 365
-                )
                 st.dataframe(
-                    diagnosis_by_stroke_type_count_per_day.rename(
-                        columns={
-                            "patient_diagnosis_type": "Diagnosis",
-                            "mean_patients_per_run": "Count",
-                        }
-                    ).round(2),
+                    metrics.diagnosis_by_stroke_type_count_per_day.round(2),
                     hide_index=True,
                 )
 
@@ -611,19 +584,14 @@ Available from {start_hour:g}:00-{end_hour:g}:00 ({duration_hours:g}h)
 
             st.subheader("Results")
 
-            sim_duration_display = f"""
-{(sim_duration_days // 365):.0f}
-year{'' if sim_duration_days // 365 == 1 else 's'} and
-{(sim_duration_days % 365):.0f} days
-            """
-
             col1a, col2a, col3a = st.columns(3)
 
             # Add container with thrombolysis savings per year
             throm_yearly_save = (
                 my_trial.df_trial_results["Thrombolysis Savings (£)"]
-                / sim_duration_years
+                / metrics.sim_duration_years
             ).mean()
+
             with col1a:
                 with iconMetricContainer(
                     key="thrombolysis_savings",
@@ -640,15 +608,12 @@ year{'' if sim_duration_days // 365 == 1 else 's'} and
 
                     st.caption(f"""
 The average total savings for the full model period
-of {sim_duration_display} were
-£{my_trial.df_trial_results['Thrombolysis Savings (£)'].mean():,.0f}.
+of {metrics.sim_duration_display} were
+£{metrics.df_trial_results["Thrombolysis Savings (£)"].mean():,.0f}.
+This looks only at savings from patients who were able to be offered thrombolysis
+due to the enhanced capabilities of the CTP scanner.
 """)
 
-            # Add container with SDEC savings per year
-            sdec_yearly_save = (
-                my_trial.df_trial_results['SDEC Savings (£)'] /
-                sim_duration_years
-            ).mean()
             with col2a:
                 with iconMetricContainer(
                     key="sdec_savings",
@@ -659,24 +624,19 @@ of {sim_duration_display} were
                 ):
                     st.metric(
                         label="Average SDEC Savings per Year",
-                        value=f"£{sdec_yearly_save:,.0f}",
+                        value=f"£{metrics.sdec_yearly_save:,.0f}",
                         border=True,
                     )
 
                     st.caption(f"""
 The average total savings for the full model period
-of {sim_duration_display} were
-£{my_trial.df_trial_results['SDEC Savings (£)'].mean():,.0f}. This is
+of {metrics.sim_duration_display} were
+£{metrics.df_trial_results["SDEC Savings (£)"].mean():,.0f}. This is
 calculated as the total savings from running the SDEC, subtracting the
 medical cost of running the SDEC. SDEC running costs are set to
 £{(g.sdec_dr_cost_min * 60):.2f} per hour.
                     """)
 
-            # Add container with overall savings per year
-            overall_yearly_save = (
-                my_trial.df_trial_results['Total Savings'] /
-                sim_duration_years
-            ).mean()
             with col3a:
                 with iconMetricContainer(
                     key="overall_savings",
@@ -687,15 +647,15 @@ medical cost of running the SDEC. SDEC running costs are set to
                 ):
                     st.metric(
                         label="Average Overall Savings per Year",
-                        value=f"£{overall_yearly_save:,.0f}",
+                        value=f"£{metrics.overall_yearly_save:,.0f}",
                         border=True,
                     )
 
                     st.caption(
                         f"""
 The average total savings for the full model period
-of {sim_duration_display} were
-£{my_trial.df_trial_results['Total Savings'].mean():,.0f}.
+of {metrics.sim_duration_display} were
+£{metrics.df_trial_results["Total Savings"].mean():,.0f}.
                         """
                     )
 
@@ -703,9 +663,55 @@ of {sim_duration_display} were
 
             col1b, col2b, col3b = st.columns(3)
 
-            # Add container with mean ward occupancy
-            mean_ward_occ = my_trial.df_trial_results["Mean Occupancy"].mean()
             with col1b:
+                # Add container with extra patients thrombolysed per year
+                with iconMetricContainer(
+                    key="additional_thrombolysis",
+                    icon_unicode="e138",
+                    family="outline",
+                    icon_color="black",
+                    type="symbols",
+                ):
+                    st.metric(
+                        label="Extra patients thrombolysed per year",
+                        value=f"{metrics.extra_throm_yearly:.0f}",
+                        border=True,
+                    )
+
+                    st.caption("""
+This looks at the average count of patients who were able to be offered
+thrombolysis due to the enhanced capabilities of the CTP scanner.
+                    """)
+
+            with col2b:
+                # Add container with average admissions avoided per year
+                with iconMetricContainer(
+                    key="admissions_avoided",
+                    icon_unicode="e0b6",
+                    family="outline",
+                    icon_color="black",
+                    type="symbols",
+                ):
+                    st.metric(
+                        label="Average Admissions Avoided per Year",
+                        value=f"{metrics.avoid_yearly:,.0f}",
+                        border=True,
+                    )
+
+                    st.caption(
+                        f"""
+Avoided admissions are those patients who were able to leave after being seen
+in SDEC, and would have had a full admission if the SDEC was not available.
+Range = {metrics.avoid_yearly_min} to {metrics.avoid_yearly_max} per year across runs.
+
+The average total number of admissions avoided for the full model period
+of {metrics.sim_duration_display} were
+{metrics.df_trial_results["Number of Admissions Avoided In Run"].mean():,.0f}.
+                        """
+                    )
+
+            # Add container with mean ward occupancy
+            with col3b:
                 with iconMetricContainer(
                     key="ward_occupancy",
                     icon_unicode="e13c",
@@ -716,82 +722,20 @@ of {sim_duration_display} were
                     st.metric(
                         label="Mean Ward Occupancy",
                         value=f"""
-{mean_ward_occ:,.0f} of {g.number_of_ward_beds} beds
+{metrics.mean_ward_occ:,.0f} of {g.number_of_ward_beds} beds
                         """,
                         border=True,
                     )
 
                     st.caption(
                         f"""
-This is an average occupancy of {(mean_ward_occ / g.number_of_ward_beds):.1%}
+This is an average occupancy of {(metrics.mean_ward_occ / g.number_of_ward_beds):.1%}
                         """
                     )
-
-            # Add container with average admissions avoided per year
-            avoid_yearly = (
-                my_trial.df_trial_results[
-                    "Number of Admissions Avoided In Run"
-                ]
-                / sim_duration_years
-            ).mean()
-            with col2b:
-                with iconMetricContainer(
-                    key="admissions_avoided",
-                    icon_unicode="e0b6",
-                    family="outline",
-                    icon_color="black",
-                    type="symbols",
-                ):
-                    st.metric(
-                        label="Average Admissions Avoided per Year",
-                        value=f"{avoid_yearly:,.0f}",
-                        border=True,
-                    )
-
-                    st.caption(
-                        f"""
-The average total number of admissions avoided for the full model period
-of {sim_duration_display} were
-{my_trial.df_trial_results['Number of Admissions Avoided In Run'].mean():,.0f}.
-Avoided admissions are those patients who were able to leave after being seen
-in SDEC, and would have had a full admission if the SDEC was not available.
-                        """
-                    )
-
-            # Add container with extra patients thrombolysed per year
-            extra_throm = (
-                g.trial_additional_thrombolysis_from_ctp[g.trials_run_counter]
-            )
-            extra_throm_yearly = (
-                extra_throm /
-                (g.sim_duration / 60 / 24)
-            ) * 365
-            with col3b:
-                with iconMetricContainer(
-                    key="additional_thrombolysis",
-                    icon_unicode="e138",
-                    family="outline",
-                    icon_color="black",
-                    type="symbols",
-                ):
-                    st.metric(
-                        label="Extra patients thrombolysed per year",
-                        value=f"{extra_throm_yearly:.0f}",
-                        border=True,
-                    )
-
-                    st.caption("""
-This looks at the average count of patients who were able to be offered
-thrombolysis due to the enhanced capabilities of the CTP scanner.
-                    """)
 
             col1c, col2c, col3c = st.columns(3)
 
             # Add container with average admission delays per year
-            admit_delay_yearly = (
-                my_trial.df_trial_results['Number of Admission Delays'] /
-                sim_duration_years
-            ).mean()
             with col1c:
                 with iconMetricContainer(
                     key="admission_delays",
@@ -802,15 +746,16 @@ thrombolysis due to the enhanced capabilities of the CTP scanner.
                 ):
                     st.metric(
                         label="Average Admission Delays per Year",
-                        value=f"{admit_delay_yearly:,.0f}",
+                        value=f"{metrics.admit_delay_yearly:,.0f}",
                         border=True,
                     )
 
                     st.caption(
                         f"""
+Range = {metrics.admit_delay_yearly_min} to {metrics.admit_delay_yearly_max} per year across runs.
 The average number of admissions that were delayed for the full model period
-of {sim_duration_display} were
-{my_trial.df_trial_results['Number of Admission Delays'].mean():,.0f}.
+of {metrics.sim_duration_display} were
+{metrics.df_trial_results["Number of Admission Delays"].mean():,.0f}.
                         """
                     )
 
@@ -894,29 +839,9 @@ This looks at the maximum delay seen across all model runs
 
             col1e, col2e = st.columns(2)
 
-            # Add container with average eligble patients outside SDEC
+            # Add container with patients outside SDEC
             # operating hours
             with col1e:
-                patients_inside_sdec_operating_hours = (
-                    patient_df[
-                        (patient_df["sdec_running_when_required"] == True)
-                        & (patient_df["non_admitted_tia_ns_sm"] == False)
-                    ]
-                    .groupby("run")
-                    .size()
-                    .mean()
-                )
-
-                patients_inside_sdec_operating_hours_per_year = (
-                    patients_inside_sdec_operating_hours /
-                    (g.sim_duration / 60 / 24)
-                ) * 365
-
-                patients_outside_sdec_operating_hours_per_year = (
-                    average_patients_per_year
-                    - patients_inside_sdec_operating_hours_per_year
-                )
-
                 with iconMetricContainer(
                     key="arrive_outside_sdec_operating_hours",
                     icon_unicode="e14b",
@@ -926,34 +851,23 @@ This looks at the maximum delay seen across all model runs
                 ):
                     st.metric(
                         label="""
-Average Eligible Patients Outside of SDEC Operating Hours
+Average Patients Outside of SDEC Operating Hours
                         """,
                         # value=f"{patients_outside_sdec_operating_hours_per_year:.0f} of {average_patients_per_year:.0f} ({(patients_outside_sdec_operating_hours_per_year / average_patients_per_year):.1%})",
                         value=f"""
-{patients_outside_sdec_operating_hours_per_year:.0f}
+{metrics.patients_outside_sdec_operating_hours_per_year:.0f} of
+{metrics.average_patients_per_year:.0f}
+({(metrics.patients_outside_sdec_operating_hours_per_year / metrics.average_patients_per_year):.1%})
                         """,
                         border=True,
                     )
 
                     st.caption("""
 This looks at the average count of patients who were unable to be routed to
-SDEC after their CT or CTP scan due to SDEC being shut. This excludes any TIA,
-stroke mimic or non-stroke patients who left the model immediately after their
-scan.
+SDEC after their CT or CTP scan due to SDEC being shut.
                     """)
 
             with col2e:
-                sdec_full = (
-                    patient_df[patient_df["sdec_full_when_required"] == True]
-                    .groupby("run")
-                    .size()
-                    .mean()
-                )
-
-                sdec_full_per_year = (
-                    sdec_full / (g.sim_duration / 60 / 24)
-                ) * 365
-
                 with iconMetricContainer(
                     key="arrive_sdec_is_full",
                     icon_unicode="e7ef",
@@ -962,19 +876,19 @@ scan.
                     type="symbols",
                 ):
                     st.metric(
-                        label="Patients Bypassing SDEC Due to it Being Full",
+                        label="Average Patients Bypassing SDEC Due to it Being Full",
                         value=f"""
-{sdec_full_per_year:.0f} of
-{patients_inside_sdec_operating_hours_per_year:.0f}
-({(sdec_full_per_year / patients_inside_sdec_operating_hours_per_year):.1%})
+{metrics.sdec_full_per_year:.0f} of
+{metrics.patients_inside_sdec_operating_hours_per_year:.0f}
+({(metrics.sdec_full_per_year / metrics.patients_inside_sdec_operating_hours_per_year):.1%})
 """,
                         border=True,
                     )
 
-                    st.caption("""
+                    st.caption(f"""
 This looks at the average count across all runs of patients arriving in SDEC
 during its open hours who had to be routed directly to a ward due to the SDEC
-being full.
+being full. Range across runs = {metrics.sdec_full_per_year_min:.0f} to {metrics.sdec_full_per_year_max:.0f} patients per year.
                     """)
 
             st.subheader("Full Per-Run Results for Trial")
@@ -985,21 +899,16 @@ being full.
             generate_occupancy_plots(
                 my_trial=my_trial,
                 warm_up_duration_days=warm_up_duration_days,
-                sim_duration_days=sim_duration_days
+                sim_duration_days=sim_duration_days,
             )
 
         ##############################
         #  MARK: Process Maps (DFGs) #
         ##############################
         with tab3:
-            event_log = convert_event_log(my_trial.trial_patient_df)
-            event_log["event"] = event_log["event"].apply(
-                lambda x: x.replace("_time", "").replace("_", " ")
-            )
             plot_dfg_per_feature(
                 split_vars=split_vars,
-                event_log=event_log,
-                patient_df=patient_df
+                patient_df=metrics.patient_df,
             )
 
         with tab4:
@@ -1007,7 +916,7 @@ being full.
             # MARK: Flexible Plot of Variables #
             ####################################
             plot_histogram(
-                patient_df=patient_df,
+                patient_df=metrics.patient_df,
                 patient_level_metric_choices=patient_level_metric_choices,
                 split_vars=split_vars,
             )
@@ -1015,7 +924,7 @@ being full.
             ####################################
             # MARK: Heatmap                    #
             ####################################
-            plot_time_heatmap(patient_df=patient_df, time_vars=time_vars)
+            plot_time_heatmap(patient_df=metrics.patient_df, time_vars=time_vars)
 
         #########################
         # MARK: Animation       #
