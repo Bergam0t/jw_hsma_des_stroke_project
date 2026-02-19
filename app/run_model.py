@@ -100,19 +100,11 @@ time_vars = {
 with st.sidebar:
     st.subheader("Stroke Ward Configuration")
 
-    number_of_ward_beds = st.slider(
-        "Choose the number of beds available in the ward", 10, 100, 49
+    number_of_triage_nurses = st.slider(
+        "Choose the number of nurses available for triage", 0, 10, 2
     )
-    g.number_of_ward_beds = number_of_ward_beds
 
-    number_of_sdec_beds = st.slider(
-        "Choose the number of beds available in the SDEC", 0, 20, 5
-    )
-    g.sdec_beds = number_of_sdec_beds
-
-    st.caption(
-        f"Total number of beds available: {number_of_ward_beds + number_of_sdec_beds}"
-    )
+    g.number_of_nurses = number_of_triage_nurses
 
     therapy_sdec = st.toggle(
         "Toggle whether the SDEC will run with full therapy support",
@@ -129,6 +121,20 @@ If therapy support enabled, patients with a higher
         """,
     )
     g.therapy_sdec = therapy_sdec
+
+    number_of_sdec_beds = st.slider(
+        "Choose the number of beds available in the SDEC", 0, 20, 5
+    )
+    g.sdec_beds = number_of_sdec_beds
+
+    number_of_ward_beds = st.slider(
+        "Choose the number of beds available in the ward", 10, 100, 49
+    )
+    g.number_of_ward_beds = number_of_ward_beds
+
+    st.caption(
+        f"Total number of beds available: {number_of_ward_beds + number_of_sdec_beds}"
+    )
 
     st.divider()
     ###############################
@@ -417,7 +423,7 @@ if button_run_pressed:
         with tab1:
             st.subheader("Configuration")
 
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2, col3, col4, col5 = st.columns(5)
 
             with col1:
                 with iconMetricContainer(
@@ -429,7 +435,7 @@ if button_run_pressed:
                 ):
                     st.metric(
                         label="CTP scanners",
-                        value=g.number_of_ctp,
+                        value="Yes" if g.number_of_ctp > 0 else "No",
                         border=True,
                     )
 
@@ -490,6 +496,23 @@ Available from {metrics.start_hour_sdec:g}:00-{metrics.end_hour_sdec:g}:00 ({met
                     st.metric(
                         label="Standard Ward Beds",
                         value=f"{g.number_of_ward_beds}",
+                        border=True,
+                    )
+
+                    # Blank lines for spacing
+                    st.caption("")
+
+            with col5:
+                with iconMetricContainer(
+                    key="triage_nurse_count",
+                    icon_unicode="f5a3",
+                    family="outline",
+                    icon_color="black",
+                    type="symbols",
+                ):
+                    st.metric(
+                        label="Triage Nurses",
+                        value=f"{g.number_of_nurses}",
                         border=True,
                     )
 
