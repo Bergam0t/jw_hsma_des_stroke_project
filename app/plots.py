@@ -216,7 +216,7 @@ def plot_occupancy(
 
 
 @st.fragment
-def plot_dfg_per_feature(split_vars, event_log, patient_df):
+def plot_dfg_per_feature(split_vars, patient_df):
     """
     Plot directly-follows graphs (DFGs) optionally faceted by a
     patient-level variable.
@@ -225,8 +225,6 @@ def plot_dfg_per_feature(split_vars, event_log, patient_df):
     ----------
     split_vars : dict
         Mapping from user-facing facet labels to column names in `patient_df`.
-    event_log : pandas.DataFrame
-        Event log for all patients.
     patient_df : pandas.DataFrame
         Patient-level table containing the variables that can be used for
         faceting.
@@ -244,14 +242,16 @@ def plot_dfg_per_feature(split_vars, event_log, patient_df):
         key="selected_facet_var_dfg",
     )
 
+    selected_run = st.selectbox(
+        "Select a run", options=list(range(1, max(patient_df.run) + 1)), index=0
+    )
+
     # Choose the time display label for the DFG
     time_format = st.radio(
         "Time Format",
         ["Display in Minutes", "Display in Hours",
             "Display in Days"],
     )
-
-    event_log_final = event_log.copy()
 
     if time_format == "Display in Minutes":
         unit = "minutes"
@@ -261,15 +261,18 @@ def plot_dfg_per_feature(split_vars, event_log, patient_df):
         unit = "days"
 
     # Add human-readable timestamps for plotting or annotation
-    event_log_final = add_sim_timestamp(
-        event_log_final, time_unit="minutes"
-    )
 
     if selected_facet_var is None:
-        # Single DFG over all cases
-        nodes, edges = discover_dfg(
-            event_log_final, case_col="id", time_unit=unit
+        event_log = convert_event_log(patient_df, run=selected_run)
+
+        event_log["event"] = event_log["event"].apply(
+            lambda x: x.replace("_time", "").replace("_", " ")
         )
+
+        event_log = add_sim_timestamp(event_log, time_unit="minutes")
+
+        # Single DFG over all cases
+        nodes, edges = discover_dfg(event_log, case_col="id", time_unit=unit)
 
         st.image(
             dfg_to_graphviz(
@@ -297,12 +300,10 @@ def plot_dfg_per_feature(split_vars, event_log, patient_df):
                 patient_df[selected_facet_value].nunique(dropna=False)
             )
 
-        for idx, var in enumerate(
-            patient_df[selected_facet_value].unique()
-        ):
+        for idx, var in enumerate(patient_df[selected_facet_value].unique()):
             # Rebuild the event log restricted to this subgroup
             event_log_filtered = convert_event_log(
-                patient_df[patient_df[selected_facet_value] == var]
+                patient_df[patient_df[selected_facet_value] == var], run=selected_run
             )
 
             # Make event labels more readable for plotting
