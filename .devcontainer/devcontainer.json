@@ -1,0 +1,29 @@
+{
+    "name": "DES Stroke",
+    "image": "mcr.microsoft.com/devcontainers/python:3.12",
+    "customizations": {
+      "codespaces": {
+        "openFiles": [
+          "readme.md"
+          ]
+      },
+      "vscode": {
+        "settings": {},
+        "extensions": [
+          "ms-python.python",
+          "ms-python.vscode-pylance",
+          "MS-vsliveshare.vsliveshare"
+        ]
+      }
+    },
+    "postCreateCommand": "if [ -f requirements.txt ]; then pip install -r requirements.txt; fi",
+    "portsAttributes": {
+        "8501": {
+        "label": "Streamlit app",
+        "onAutoForward": "openPreview"
+        }
+    },
+    "forwardPorts": [
+      8501
+    ]
+  }
