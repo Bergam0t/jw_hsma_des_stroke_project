@@ -1,6 +1,7 @@
 {
     "name": "DES Stroke",
     "image": "mcr.microsoft.com/devcontainers/python:3.12",
+    "remoteUser": "vscode",
     "customizations": {
       "codespaces": {
         "openFiles": [
@@ -16,7 +17,7 @@
         ]
       }
     },
-    "postCreateCommand": "if [ -f environment/requirements.txt ]; then pip install -r environment/requirements.txt; fi",
+    "updateContentCommand": "[ -f environment/requirements.txt ] && pip3 install --user -r environment/requirements.txt && echo '✅ Packages installed'",
     "portsAttributes": {
         "8501": {
         "label": "Streamlit app",
