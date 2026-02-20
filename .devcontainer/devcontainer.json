@@ -16,7 +16,7 @@
         ]
       }
     },
-    "postCreateCommand": "if [ -f requirements.txt ]; then pip install -r requirements.txt; fi",
+    "postCreateCommand": "if [ -f environment/requirements.txt ]; then pip install -r environment/requirements.txt; fi",
     "portsAttributes": {
         "8501": {
         "label": "Streamlit app",
