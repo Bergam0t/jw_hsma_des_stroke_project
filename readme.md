@@ -120,6 +120,20 @@ The `los.csv` and `iat.csv` included in this repository are dummy examples for s
 
 <br>
 
+## Exploring the model via GitHub Codespaces
+
+You can run and experiment with the model in an online VS Code environment using GitHub Codespaces, without installing anything locally.
+
+1. Ensure you are logged in to GitHub and have access to GitHub Codespaces.
+2. Click the green **Code** button on this repository.
+3. Select the **Codespaces** tab, then choose **Create codespace on main** (or another branch if you prefer).
+
+GitHub will create a new Codespace using the pre-configured development container. Once it's ready, a VS Code editor will open in your browser with the repository loaded.
+
+In the integrated terminal, run the provided scripts or commands (e.g., to execute the simulation or tests) and explore or modify the model directly in this environment.
+
+<br>
+
 ## Changelog
 
 Please note all changes made to the code in the file `docs/CHANGELOG.md`.

@@ -1,0 +1,30 @@
+{
+    "name": "DES Stroke",
+    "image": "mcr.microsoft.com/devcontainers/python:3.12",
+    "remoteUser": "vscode",
+    "customizations": {
+      "codespaces": {
+        "openFiles": [
+          "readme.md"
+          ]
+      },
+      "vscode": {
+        "settings": {},
+        "extensions": [
+          "ms-python.python",
+          "ms-python.vscode-pylance",
+          "MS-vsliveshare.vsliveshare"
+        ]
+      }
+    },
+    "updateContentCommand": "[ -f environment/requirements.txt ] && pip3 install --user -r environment/requirements.txt && echo '✅ Packages installed'",
+    "portsAttributes": {
+        "8501": {
+        "label": "Streamlit app",
+        "onAutoForward": "openPreview"
+        }
+    },
+    "forwardPorts": [
+      8501
+    ]
+  }
